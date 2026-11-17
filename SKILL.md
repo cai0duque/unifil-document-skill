@@ -33,7 +33,11 @@ uv run render.py meu-trabalho.md --check
 # 2. Gerar PDF oficial UniFil (preenche paginas do Sumario e Listas automaticamente)
 uv run render.py meu-trabalho.md
 
-# 3. Especificar arquivo de saida ou modo artigo (fluxo continuo sem quebra por H1)
+# 3. Gerar PDF + DOCX editavel simultaneamente (ou apenas DOCX com --docx-only)
+uv run render.py meu-trabalho.md --docx
+uv run render.py meu-trabalho.md --docx-only --out ./entregas/trabalho.docx
+
+# 4. Especificar arquivo de saida ou modo artigo (fluxo continuo sem quebra por H1)
 uv run render.py meu-artigo.md --mode artigo --out ./entregas/artigo.pdf
 ```
 

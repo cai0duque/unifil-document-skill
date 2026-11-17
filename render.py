@@ -6,14 +6,16 @@
 #     "pyyaml>=6.0",
 #     "markdown-it-py>=3.0.0",
 #     "pypdf>=4.0.0",
+#     "python-docx>=1.1.0",
 # ]
 # ///
 """
-render.py - Gerador de documentos academicos e cientificos em PDF
+render.py - Gerador de documentos academicos e cientificos em PDF e DOCX
 seguindo o modelo oficial da UniFil e as normas da ABNT.
 
 Uso:
-    uv run render.py <arquivo.md> [--out <saida.pdf>]
+    uv run render.py <arquivo.md> [--out <saida.pdf>] [--docx [<saida.docx>]]
+    uv run render.py <arquivo.md> --docx-only [--out <saida.docx>]
     uv run render.py <arquivo.md> --mode artigo
     uv run render.py <arquivo.md> --check
     uv run render.py --list-unis
@@ -1071,7 +1073,7 @@ def generate_academic_pdf(
     mode: str | None = None,
     chrome_bin: str | None = None,
     sync_toc: bool = True,
-) -> None:
+) -> dict[str, int]:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -1080,6 +1082,7 @@ def generate_academic_pdf(
         )
 
     capa_html, miolo_html_p1 = build_split_html(md_text, org, title=title, mode=mode)
+    page_map: dict[str, int] = {}
 
     with sync_playwright() as p:
         launch_args: dict = {}
@@ -1135,6 +1138,7 @@ def generate_academic_pdf(
                 shutil.copy2(final_miolo_pdf, out_pdf)
 
         browser.close()
+    return page_map
 
 
 def list_unis() -> list[str]:
@@ -1175,6 +1179,14 @@ def main() -> None:
         "--no-toc-sync", action="store_true",
         help="Nao preenche automaticamente os numeros de pagina do Sumario",
     )
+    parser.add_argument(
+        "--docx", nargs="?", const="__AUTO__", default=None,
+        help="Exporta tambem uma versao .docx (opcionalmente informando o caminho)",
+    )
+    parser.add_argument(
+        "--docx-only", action="store_true",
+        help="Gera apenas o arquivo .docx sem gerar PDF",
+    )
     parser.add_argument("--list-unis", "--list-orgs", action="store_true", dest="list_unis", help="Lista instituicoes e sai")
     parser.add_argument("--list-templates", action="store_true", help="Lista templates disponiveis e sai")
 
@@ -1213,17 +1225,41 @@ def main() -> None:
     print(f" Instituicao: {org['display_name']} ({org['slug']})")
     if errors or warnings:
         print_audit_report(errors, warnings, md_path)
-    print(" Renderizando PDF ABNT/UniFil via Playwright...")
-    generate_academic_pdf(
-        md_text,
-        org,
-        out_pdf,
-        title=title,
-        mode=args.mode,
-        chrome_bin=args.chrome_bin,
-        sync_toc=not args.no_toc_sync,
-    )
-    print(f" PDF gerado: {out_pdf}")
+
+    page_map: dict[str, int] = {}
+    if not args.docx_only:
+        print(" Renderizando PDF ABNT/UniFil via Playwright...")
+        page_map = generate_academic_pdf(
+            md_text,
+            org,
+            out_pdf,
+            title=title,
+            mode=args.mode,
+            chrome_bin=args.chrome_bin,
+            sync_toc=not args.no_toc_sync,
+        )
+        print(f" PDF gerado: {out_pdf}")
+
+    if args.docx is not None or args.docx_only:
+        from docx_export import export_markdown_to_docx
+
+        if args.docx and args.docx != "__AUTO__":
+            out_docx = Path(args.docx)
+        elif args.docx_only and args.out:
+            out_docx = Path(args.out)
+        else:
+            out_docx = out_pdf.with_suffix(".docx")
+
+        print(" Exportando DOCX ABNT/UniFil...")
+        export_markdown_to_docx(
+            md_text,
+            org,
+            out_docx,
+            mode=args.mode,
+            page_map=page_map or None,
+            uni_dir=UNIS_DIR / args.uni,
+        )
+        print(f" DOCX gerado: {out_docx}")
 
 
 if __name__ == "__main__":
