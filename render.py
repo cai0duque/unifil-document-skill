@@ -1070,6 +1070,122 @@ def _extract_toc_page_map(miolo_pdf: Path, md_text: str) -> dict[str, int]:
     return page_map
 
 
+def _collect_pdf_outline_entries(
+    miolo_pdf: Path, md_text: str, capa_pages: int = 0
+) -> list[tuple[int, str, int]]:
+    """Extrai todas as secoes (#..#####) e calcula os indices 0-based no PDF final."""
+    from pypdf import PdfReader
+
+    reader = PdfReader(str(miolo_pdf))
+    pages_norm = [_norm_key(page.extract_text() or "") for page in reader.pages]
+    if not pages_norm:
+        return []
+
+    _, md_without_fm = parse_frontmatter(md_text)
+    skip_titles = {"CAPA", "FOLHA DE ROSTO", "BANCA EXAMINADORA"}
+
+    headings: list[tuple[int, str, bool]] = []
+    for sec_title, sec_body in split_top_h1_sections(md_without_fm):
+        if sec_title is None:
+            continue
+        norm = _strip_accents(sec_title).upper().strip()
+        if norm in skip_titles:
+            continue
+        is_pretext = norm in {"RESUMO", "ABSTRACT", "SUMARIO"} or norm.startswith("LISTA DE ")
+        clean_h1 = re.sub(r"<[^>]+>", "", _strip_md_inline(sec_title)).strip().upper()
+        headings.append((1, clean_h1, is_pretext))
+
+        if is_pretext:
+            continue
+
+        in_fence = False
+        for line in sec_body.splitlines():
+            s = line.strip()
+            if s.startswith("```") or s.startswith("~~~"):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue
+            hm = re.match(r"^(#{2,5})\s+(.+)$", s)
+            if hm:
+                level = len(hm.group(1))
+                raw = re.sub(r"<[^>]+>", "", _strip_md_inline(hm.group(2))).strip()
+                label = raw.upper() if level == 2 else raw
+                headings.append((level, label, False))
+
+    entries: list[tuple[int, str, int]] = []
+    cursor = 0
+    sumario_idx: int | None = None
+    in_textual = False
+
+    for level, label, is_pretext in headings:
+        nk = _norm_key(label)
+        if not nk:
+            continue
+
+        if not is_pretext and not in_textual:
+            in_textual = True
+            search_from = (sumario_idx + 1) if sumario_idx is not None else cursor
+            matched_idx: int | None = None
+            for idx in range(search_from, len(pages_norm)):
+                if nk in pages_norm[idx] and "sumario" not in pages_norm[idx][:60]:
+                    matched_idx = idx
+                    break
+        else:
+            search_from = cursor
+            matched_idx = None
+            for idx in range(search_from, len(pages_norm)):
+                if nk in pages_norm[idx]:
+                    matched_idx = idx
+                    break
+
+        if matched_idx is not None:
+            cursor = matched_idx
+            if is_pretext and nk == "sumario":
+                sumario_idx = matched_idx
+            entries.append((level, label, capa_pages + matched_idx))
+
+    return entries
+
+
+def _write_pdf_with_outlines(
+    miolo_pdf: Path,
+    md_text: str,
+    out_pdf: Path,
+    capa_pdf: Path | None = None,
+) -> None:
+    """Combina capa (opcional) + miolo e grava marcadores hierarquicos (PDF Outlines) via pypdf."""
+    try:
+        from pypdf import PdfReader, PdfWriter
+    except ImportError:
+        shutil.copy2(miolo_pdf, out_pdf)
+        return
+
+    capa_pages = len(PdfReader(str(capa_pdf)).pages) if capa_pdf else 0
+    entries = _collect_pdf_outline_entries(miolo_pdf, md_text, capa_pages=capa_pages)
+
+    writer = PdfWriter()
+    if capa_pdf:
+        writer.append(str(capa_pdf))
+    writer.append(str(miolo_pdf))
+
+    outline_stack: dict[int, object] = {}
+    for level, label, page_idx in entries:
+        parent = None
+        for p_lvl in range(level - 1, 0, -1):
+            if p_lvl in outline_stack:
+                parent = outline_stack[p_lvl]
+                break
+        for d_lvl in list(outline_stack.keys()):
+            if d_lvl >= level:
+                del outline_stack[d_lvl]
+        ref = writer.add_outline_item(title=label, page_number=page_idx, parent=parent)
+        outline_stack[level] = ref
+
+    with open(out_pdf, "wb") as f_out:
+        writer.write(f_out)
+
+
 def generate_academic_pdf(
     md_text: str,
     org: dict,
@@ -1126,21 +1242,11 @@ def generate_academic_pdf(
                     _render_html_to_pdf(page, miolo_html_p2, miolo_p2_pdf)
                     final_miolo_pdf = miolo_p2_pdf
 
+            capa_pdf: Path | None = None
             if capa_html:
                 capa_pdf = tmp_dir / "capa.pdf"
                 _render_html_to_pdf(page, capa_html, capa_pdf)
-                try:
-                    from pypdf import PdfWriter
-
-                    writer = PdfWriter()
-                    writer.append(str(capa_pdf))
-                    writer.append(str(final_miolo_pdf))
-                    with open(out_pdf, "wb") as f_out:
-                        writer.write(f_out)
-                except ImportError:
-                    shutil.copy2(final_miolo_pdf, out_pdf)
-            else:
-                shutil.copy2(final_miolo_pdf, out_pdf)
+            _write_pdf_with_outlines(final_miolo_pdf, md_text, out_pdf, capa_pdf=capa_pdf)
 
         browser.close()
     return page_map

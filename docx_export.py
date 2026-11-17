@@ -47,6 +47,67 @@ def _set_run_font(run, name: str = "Arial", size_pt: float = 12, bold: bool = Fa
     rFonts.set(qn("w:eastAsia"), name)
 
 
+def _configure_heading_style(
+    doc: Document,
+    style_name: str,
+    *,
+    bold: bool = False,
+    italic: bool = False,
+    space_before_pt: float = 0,
+    space_after_pt: float = 18,
+) -> None:
+    """Configura estilos embutidos Heading 1..5 conforme ABNT NBR 6024 e padrao UniFil."""
+    st = doc.styles[style_name]
+    st.font.name = "Arial"
+    st.font.size = Pt(12)
+    st.font.bold = bold
+    st.font.italic = italic
+    st.font.color.rgb = RGBColor(0x00, 0x00, 0x00)
+
+    rPr = st.element.get_or_add_rPr()
+    rFonts = rPr.find(qn("w:rFonts"))
+    if rFonts is None:
+        rFonts = OxmlElement("w:rFonts")
+        rPr.insert(0, rFonts)
+    for attr in ("w:asciiTheme", "w:hAnsiTheme", "w:cstheme", "w:eastAsiaTheme"):
+        rFonts.attrib.pop(qn(attr), None)
+    rFonts.set(qn("w:ascii"), "Arial")
+    rFonts.set(qn("w:hAnsi"), "Arial")
+    rFonts.set(qn("w:cs"), "Arial")
+    rFonts.set(qn("w:eastAsia"), "Arial")
+
+    color_el = rPr.find(qn("w:color"))
+    if color_el is None:
+        color_el = OxmlElement("w:color")
+        rPr.append(color_el)
+    for attr in ("w:themeColor", "w:themeTint", "w:themeShade"):
+        color_el.attrib.pop(qn(attr), None)
+    color_el.set(qn("w:val"), "000000")
+
+    sz_cs = rPr.find(qn("w:szCs"))
+    if sz_cs is None:
+        sz_cs = OxmlElement("w:szCs")
+        rPr.append(sz_cs)
+    sz_cs.set(qn("w:val"), "24")
+
+    for tag, enabled in (("w:bCs", bold), ("w:iCs", italic)):
+        el = rPr.find(qn(tag))
+        if enabled and el is None:
+            rPr.append(OxmlElement(tag))
+        elif not enabled and el is not None:
+            rPr.remove(el)
+
+    pf = st.paragraph_format
+    pf.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    pf.first_line_indent = Cm(0)
+    pf.left_indent = Cm(0)
+    pf.right_indent = Cm(0)
+    pf.line_spacing = 1.5
+    pf.space_before = Pt(space_before_pt)
+    pf.space_after = Pt(space_after_pt)
+    pf.keep_with_next = True
+
+
 def _add_inline_runs(p, text: str, size_pt: float = 12, base_bold: bool = False, base_italic: bool = False) -> None:
     """Converte negrito (**), italico (* ou _), codigo (`), sub/sup HTML e escapes em runs Word."""
     text = text.replace(r"\_", "_").replace(r"\*", "*")
@@ -298,7 +359,15 @@ def export_markdown_to_docx(
     rFonts.set(qn("w:ascii"), "Arial")
     rFonts.set(qn("w:hAnsi"), "Arial")
     rFonts.set(qn("w:cs"), "Arial")
+    rFonts.set(qn("w:eastAsia"), "Arial")
     rPr.insert(0, rFonts)
+
+    # Estilos nativos Heading 1..5 (ABNT NBR 6024 / UniFil) para painel de navegacao e sumario
+    _configure_heading_style(doc, "Heading 1", bold=True, italic=False, space_before_pt=0, space_after_pt=18)
+    _configure_heading_style(doc, "Heading 2", bold=False, italic=False, space_before_pt=18, space_after_pt=18)
+    _configure_heading_style(doc, "Heading 3", bold=True, italic=False, space_before_pt=18, space_after_pt=18)
+    _configure_heading_style(doc, "Heading 4", bold=False, italic=False, space_before_pt=18, space_after_pt=18)
+    _configure_heading_style(doc, "Heading 5", bold=False, italic=True, space_before_pt=18, space_after_pt=18)
 
     # Logo oficial UniFil
     logo_path: Path | None = None
@@ -604,9 +673,11 @@ def export_markdown_to_docx(
             _ensure_textual_section()
             if not is_article:
                 doc.add_page_break()
-            hp = doc.add_paragraph()
+            hp = doc.add_paragraph(style="Heading 1")
             hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            hp.paragraph_format.space_before = Pt(0)
             hp.paragraph_format.space_after = Pt(18)
+            hp.paragraph_format.keep_with_next = True
             _set_run_font(hp.add_run(sec_title.upper()), size_pt=12, bold=True)
 
             for para in re.split(r"\n\s*\n", sec_body.strip()):
@@ -626,7 +697,7 @@ def export_markdown_to_docx(
             if not first_textual and not is_article:
                 doc.add_page_break()
 
-            hp = doc.add_paragraph()
+            hp = doc.add_paragraph(style="Heading 1")
             hp.alignment = WD_ALIGN_PARAGRAPH.LEFT
             hp.paragraph_format.line_spacing = 1.5
             hp.paragraph_format.space_before = Pt(12 if is_article and not first_textual else 0)
@@ -649,11 +720,11 @@ def export_markdown_to_docx(
                 if hm:
                     level = len(hm.group(1))
                     htext = _strip_md(hm.group(2))
-                    sh = doc.add_paragraph()
+                    sh = doc.add_paragraph(style=f"Heading {level}")
                     sh.alignment = WD_ALIGN_PARAGRAPH.LEFT
                     sh.paragraph_format.line_spacing = 1.5
-                    sh.paragraph_format.space_before = Pt(14)
-                    sh.paragraph_format.space_after = Pt(12)
+                    sh.paragraph_format.space_before = Pt(18)
+                    sh.paragraph_format.space_after = Pt(18)
                     sh.paragraph_format.keep_with_next = True
                     if level == 2:
                         _set_run_font(sh.add_run(htext.upper()), size_pt=12, bold=False)
