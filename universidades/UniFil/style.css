@@ -606,11 +606,15 @@ html, body {
 
 .unifil-referencias p {
   font-size: 12pt;
-  line-height: var(--abnt-leading-single, 1.15);
+  line-height: var(--abnt-leading-single, 1.05);
   text-align: left;
   text-indent: 0;
   margin-bottom: 12pt;
   overflow-wrap: anywhere;
+}
+
+.unifil-referencias p:last-child {
+  margin-bottom: 0;
 }
 
 .unifil-referencias a {

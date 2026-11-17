@@ -434,7 +434,7 @@ def export_markdown_to_docx(
                         np = doc.add_paragraph()
                         np.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                         np.paragraph_format.left_indent = Cm(8.0)
-                        np.paragraph_format.line_spacing = 1.15
+                        np.paragraph_format.line_spacing = 1.0
                         np.paragraph_format.space_after = Pt(10)
                         _add_inline_runs(np, ln, size_pt=12)
                 else:
@@ -478,7 +478,7 @@ def export_markdown_to_docx(
                         np = doc.add_paragraph()
                         np.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                         np.paragraph_format.left_indent = Cm(8.0)
-                        np.paragraph_format.line_spacing = 1.15
+                        np.paragraph_format.line_spacing = 1.0
                         np.paragraph_format.space_after = Pt(8)
                         _add_inline_runs(np, ln, size_pt=12)
                 elif "BANCA EXAMINADORA" in p_blk.upper():
@@ -512,7 +512,7 @@ def export_markdown_to_docx(
                 if idx == 0 and re.match(r"^[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{2,},\s", p_blk):
                     rp = doc.add_paragraph()
                     rp.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                    rp.paragraph_format.line_spacing = 1.15
+                    rp.paragraph_format.line_spacing = 1.0
                     rp.paragraph_format.space_after = Pt(14)
                     _add_inline_runs(rp, p_blk, size_pt=12)
 
@@ -528,7 +528,7 @@ def export_markdown_to_docx(
                         _set_run_font(hp.add_run(sec_title.upper()), size_pt=12, bold=True)
                     bp = doc.add_paragraph()
                     bp.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-                    bp.paragraph_format.line_spacing = 1.15
+                    bp.paragraph_format.line_spacing = 1.0
                     bp.paragraph_format.space_after = Pt(12)
                     _add_inline_runs(bp, p_blk, size_pt=12)
 
@@ -615,7 +615,7 @@ def export_markdown_to_docx(
                     continue
                 rp = doc.add_paragraph()
                 rp.alignment = WD_ALIGN_PARAGRAPH.LEFT
-                rp.paragraph_format.line_spacing = 1.15
+                rp.paragraph_format.line_spacing = 1.0
                 rp.paragraph_format.space_after = Pt(12)
                 _add_inline_runs(rp, p_txt, size_pt=12)
 
@@ -686,7 +686,7 @@ def export_markdown_to_docx(
                     qp = doc.add_paragraph()
                     qp.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
                     qp.paragraph_format.left_indent = Cm(4.0)
-                    qp.paragraph_format.line_spacing = 1.15
+                    qp.paragraph_format.line_spacing = 1.0
                     qp.paragraph_format.space_before = Pt(8)
                     qp.paragraph_format.space_after = Pt(8)
                     _add_inline_runs(qp, q_txt, size_pt=10)

@@ -76,7 +76,7 @@ def audit_academic_markdown(md_text: str, md_path: Path | None = None) -> tuple[
     errors: list[str] = []
     warnings: list[str] = []
 
-    # 1. Caracteres proibidos fora de blocos de codigo e titulos literais em Referencias
+    # 1. Caracteres proibidos e pontuacao de indicativo numerico de secao (NBR 6024:2012) fora de blocos de codigo
     in_code = False
     in_refs = False
     for idx, line in enumerate(md_text.splitlines(), start=1):
@@ -86,6 +86,11 @@ def audit_academic_markdown(md_text: str, md_path: Path | None = None) -> tuple[
             continue
         if in_code:
             continue
+        if re.match(r"^#{1,5}\s+\d+(?:\.\d+)*(?:[\.\-\u2013\u2014]|\s+[\-\u2013\u2014])\s+", stripped):
+            errors.append(
+                f"Linha {idx}: Pontuacao indevida apos indicativo numerico ({stripped}). "
+                "Segundo a ABNT NBR 6024:2012 e o manual da UniFil, nao se usa ponto, hifen ou travessao entre o numero e o titulo da secao (correto: '# 1 INTRODUCAO', nunca '# 1. INTRODUCAO')."
+            )
         if re.match(r"^#\s+REFER[ÊE]NCIAS\b", stripped, re.I):
             in_refs = True
             continue
