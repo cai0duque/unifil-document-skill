@@ -43,26 +43,27 @@ uv run render.py meu-artigo.md --mode artigo --out ./entregas/artigo.pdf
 
 - **Papel e Margens (NBR 14724):** A4 (`210 mm x 297 mm`), margem superior e esquerda de `3 cm` (`30 mm`), inferior e direita de `2 cm` (`20 mm`).
 - **Tipografia obrigatória:** **Arial** (`12 pt` no corpo do texto e títulos; `14 pt` na capa para autor e título; `10 pt` em citações diretas longas, tabelas, quadros e fontes). O pacote embarca `Liberation Sans` e `Liberation Mono` em `universidades/UniFil/fontes/` para garantir renderização offline com métricas idênticas à Arial no Linux.
-- **Capa (`# CAPA`):** exibe centralizado no topo o logo oficial (`unifil-logo-trabalho-academico.png`, largura `9,9 cm`), autor em caixa alta (`14 pt`), título em negrito e subtítulo (`14 pt`), e local/ano no rodapé (`12 pt`). Não recebe número de página.
-- **Folha de Rosto (`# FOLHA DE ROSTO`) e Banca (`# BANCA EXAMINADORA`):** sem logo, com bloco de natureza do trabalho em espaçamento simples recuado `50%` à direita.
+- **Capa (`# CAPA`), Folha de Rosto (`# FOLHA DE ROSTO`) e Banca (`# BANCA EXAMINADORA`):** exibem exclusivamente o título em língua portuguesa (conforme `modelo-de-trabalho-unifil-graduacao.docx` e ABNT NBR 14724). O título em língua estrangeira aparece apenas na referência bibliográfica no topo do **Abstract**. A Capa centraliza no topo o logo oficial (`unifil-logo-trabalho-academico.png`, largura `9,9 cm`), autor em caixa alta (`14 pt`), título em negrito e subtítulo (`14 pt`), e local/ano no rodapé (`12 pt`), sem numeração de página. Folha de Rosto e Banca não levam logo e trazem a natureza do trabalho em espaçamento simples recuada `50%` à direita.
 - **Numeração de páginas (NBR 14724):** contada a partir da Folha de Rosto (Capa = 0, Folha de Rosto = 1), oculta nos elementos pré-textuais e exibida no canto superior direito (`10 pt`) a partir de `# 1 INTRODUÇÃO` até as `# REFERÊNCIAS` / apêndices / anexos.
-- **Sumário e Listas automáticos:** marcadores `p. X` ou `00` em `# SUMÁRIO`, `# LISTA DE QUADROS`, `# LISTA DE TABELAS` e `# LISTA DE ILUSTRAÇÕES` são substituídos automaticamente em duas passagens pelos números reais de página do PDF.
+- **Sumário e Listas automáticos:** marcadores `p. X` ou `00` em `# SUMÁRIO`, `# LISTA DE QUADROS`, `# LISTA DE TABELAS` e `# LISTA DE ILUSTRAÇÕES` são substituídos automaticamente em duas passagens pelos números reais de página do PDF, em layout tabular que mantém indicativo numérico, título, pontilhado e número de página alinhados.
 - **Seções Progressivas (NBR 6024):**
   - `# 1 TÍTULO` -> caixa alta, negrito (`12 pt`), alinhado à esquerda (inicia nova página no modo `monografia`);
   - `## 2.1 TÍTULO` -> caixa alta, sem negrito (`12 pt`);
-  - `### 2.1.1 Título` -> primeiras letras em maiúsculo, sem negrito (`12 pt`);
-  - `#### 2.1.1.1 Título` -> somente a 1ª letra da 1ª palavra em maiúsculo (`12 pt`);
-  - `##### 2.1.1.1.1 Título` -> itálico (`12 pt`).
-- **Parágrafos e Citações (NBR 10520):** corpo justificado, espaçamento `1,5` entre linhas e recuo de primeira linha de `1,5 cm`. Citações diretas com mais de 3 linhas em bloco (`> ...`) recebem recuo esquerdo de `4 cm`, fonte `10 pt`, espaçamento simples e sem aspas.
-- **Tabelas (IBGE) vs. Quadros (ABNT):** tabelas padrão são renderizadas sem bordas verticais (apenas fios horizontais no topo, cabeçalho e base). Tabelas precedidas por legenda `Quadro N - ...` (ou envolvidas em `<!-- abnt-quadro --> ... <!-- /abnt-quadro -->`) recebem grade fechada nos quatro lados.
+  - `### 2.1.1 Título` -> primeiras letras em maiúsculo, com negrito (`12 pt`);
+  - `#### 2.1.1.1 Título` -> somente a 1ª letra da 1ª palavra em maiúsculo, sem negrito (`12 pt`);
+  - `##### 2.1.1.1.1 Título` -> itálico, sem negrito (`12 pt`).
+- **Parágrafos, Alíneas e Citações (NBR 10520):** corpo justificado, espaçamento `1,5` entre linhas e recuo de primeira linha de `1,5 cm`. Alíneas (`a) ...`, `b) ...`) são separadas automaticamente em parágrafos próprios. Citações diretas com mais de 3 linhas em bloco (`> ...`) recebem recuo esquerdo de `4 cm`, fonte `10 pt`, espaçamento simples e sem aspas. Expressões simples como `$H_1$` ou `$(H_{1})$` são convertidas automaticamente para subscrito HTML (`H<sub>1</sub>`).
+- **Tabelas (IBGE) vs. Quadros (ABNT):** tabelas padrão são renderizadas sem bordas verticais (apenas fios horizontais no topo, cabeçalho e base). Tabelas precedidas por legenda `Quadro N - ...` (ou envolvidas em `<!-- abnt-quadro --> ... <!-- /abnt-quadro -->`) recebem grade fechada nos quatro lados e permanecem agrupadas com sua legenda e fonte.
 - **Referências (NBR 6023):** alinhamento exclusivamente à esquerda, espaçamento simples e separação de uma linha simples entre entradas.
 
-## Regras de Redação Acadêmica e ABNT
+## Regras de Redação Acadêmica, Prevenção de Erros e Pipeline
 
 1. **Sem marcas de geração automática por IA:** evitar travessões (`U+2014` / `U+2013`) como conectores na prosa (preferir vírgulas ou parênteses), evitar emojis, setas Unicode e floreios retóricos.
-2. **Consistência pré-textual:** título em português e em língua estrangeira idênticos entre Capa, Folha de Rosto, Banca, Resumo e Abstract.
-3. **Resumo e Palavras-chave (NBR 6028 / Projeto UniFil):** parágrafo único, espaçamento simples, até 250 palavras para Projetos de Pesquisa (150 a 500 palavras para Monografia), seguido de até 5 palavras-chave separadas por ponto e vírgula (`;`) e finalizadas por ponto final (`.`).
-4. **Siglas e Referências 1-para-1:** toda sigla listada em `LISTA DE ABREVIATURAS E SIGLAS` deve constar no corpo textual, e toda obra em `REFERÊNCIAS` deve estar citada no texto (e vice-versa).
+2. **Título exclusivo em português na Capa, Folha de Rosto e Banca:** não inserir tradução em inglês na Capa, Folha de Rosto ou Banca; o título em português deve ser 100% idêntico entre Capa, Folha de Rosto, Banca e Resumo, e o título em inglês deve constar apenas na entrada bibliográfica do Abstract.
+3. **Sem notas internas no documento final:** remover todas as notas de instrução ou lembretes de formatação (ex.: `*(Nota de formatação...)*`) antes da renderização.
+4. **Pipeline isolado:** o `render.py` processa HTML e PDFs intermediários exclusivamente em diretórios temporários isolados (`tempfile`), sem anexar arquivos auxiliares ou temporários ao PDF final.
+5. **Resumo e Palavras-chave (NBR 6028 / Projeto UniFil):** parágrafo único, espaçamento simples, até 250 palavras para Projetos de Pesquisa (150 a 500 palavras para Monografia), seguido de até 5 palavras-chave separadas por ponto e vírgula (`;`) e finalizadas por ponto final (`.`).
+6. **Siglas e Referências 1-para-1:** toda sigla listada em `LISTA DE ABREVIATURAS E SIGLAS` deve constar no corpo textual, e toda obra em `REFERÊNCIAS` deve estar citada no texto (e vice-versa).
 
 Sempre valide o Markdown antes de gerar a entrega final:
 ```bash

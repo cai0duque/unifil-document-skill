@@ -21,6 +21,14 @@ margins:
   bottom: "20mm"
   right: "20mm"
 
+# Hierarquia tipografica de secoes (NBR 6024 / Modelo Oficial UniFil)
+sections_typography:
+  h1: "12pt, caixa alta, negrito, alinhado a esquerda"
+  h2: "12pt, caixa alta, sem negrito, alinhado a esquerda"
+  h3: "12pt, primeiras letras maiusculas, negrito, alinhado a esquerda"
+  h4: "12pt, primeira letra maiuscula, sem negrito, alinhado a esquerda"
+  h5: "12pt, italico, sem negrito, alinhado a esquerda"
+
 # Tag padrao de capa para trabalhos sem frontmatter
 brand_tagline: "Trabalho Acadêmico"
 footer_left: "Centro Universitário Filadélfia - UniFil"

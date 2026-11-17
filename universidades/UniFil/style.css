@@ -253,25 +253,44 @@ html, body {
   white-space: nowrap;
 }
 
-.unifil-toc-list {
-  list-style: none;
+.unifil-toc-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: none;
   margin: 0;
-  padding: 0;
 }
 
-.unifil-toc-row {
-  display: flex;
-  align-items: flex-end;
+.unifil-toc-table td {
+  border: none;
+  padding: 1.5pt 0;
   font-size: 12pt;
   line-height: 1.45;
-  margin-bottom: 3pt;
+  vertical-align: top;
 }
 
-.unifil-toc-row.level-1 { font-weight: 700; text-transform: uppercase; margin-top: 4pt; }
-.unifil-toc-row.level-2 { font-weight: 400; text-transform: uppercase; padding-left: 0; }
-.unifil-toc-row.level-3 { font-weight: 400; padding-left: 0; }
-.unifil-toc-row.level-4 { font-weight: 400; padding-left: 0; }
-.unifil-toc-row.level-5 { font-style: italic; font-weight: 400; padding-left: 0; }
+.unifil-toc-row.level-1 td { font-weight: 700; text-transform: uppercase; padding-top: 4pt; }
+.unifil-toc-row.level-2 td { font-weight: 400; text-transform: uppercase; }
+.unifil-toc-row.level-3 td { font-weight: 700; }
+.unifil-toc-row.level-4 td { font-weight: 400; }
+.unifil-toc-row.level-5 td { font-style: italic; font-weight: 400; }
+
+.unifil-toc-num {
+  width: 1%;
+  white-space: nowrap;
+  padding-right: 10pt !important;
+  text-align: left;
+}
+
+.unifil-toc-title-cell {
+  width: auto;
+  text-align: left;
+}
+
+.unifil-toc-line {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+}
 
 .unifil-toc-title {
   flex: 0 1 auto;
@@ -280,13 +299,16 @@ html, body {
 .unifil-toc-dots {
   flex: 1 1 auto;
   border-bottom: 1px dotted #000000;
-  margin: 0 6pt 4pt 6pt;
+  margin: 0 4pt 4pt 6pt;
   min-width: 16pt;
 }
 
 .unifil-toc-page {
-  flex: 0 0 auto;
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 4pt !important;
   text-align: right;
+  vertical-align: bottom !important;
   font-variant-numeric: tabular-nums;
 }
 
@@ -361,7 +383,7 @@ html, body {
 
 .unifil-textual h3 {
   font-size: 12pt;
-  font-weight: 400;
+  font-weight: 700;
   text-transform: none;
   text-align: left;
   text-indent: 0;
@@ -510,11 +532,21 @@ html, body {
   border-bottom: none;
 }
 
+/* Bloco coeso para manter legenda, quadro/tabela e fonte juntos quando couberem na pagina */
+.abnt-float-block {
+  margin: 12pt 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 /* Quadros (grade fechada nas quatro laterais) */
 .unifil-textual .abnt-quadro table,
 .unifil-textual table.abnt-quadro {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
   border: 1px solid #000000;
-  font-size: 9.5pt;
+  font-size: 9pt;
   line-height: 1.25;
 }
 
@@ -524,6 +556,30 @@ html, body {
 .unifil-textual table.abnt-quadro td {
   border: 1px solid #000000;
   padding: 4pt 5pt;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.unifil-textual table.abnt-quadro:has(th:nth-child(4)):not(:has(th:nth-child(5))) th:first-child,
+.unifil-textual table.abnt-quadro:has(th:nth-child(4)):not(:has(th:nth-child(5))) td:first-child {
+  width: 18%;
+}
+
+.unifil-textual table.abnt-quadro:has(th:nth-child(4)):not(:has(th:nth-child(5))) th:nth-child(2),
+.unifil-textual table.abnt-quadro:has(th:nth-child(4)):not(:has(th:nth-child(5))) td:nth-child(2) {
+  width: 22%;
+}
+
+.unifil-textual table.abnt-quadro:has(th:nth-child(4)):not(:has(th:nth-child(5))) th:nth-child(3),
+.unifil-textual table.abnt-quadro:has(th:nth-child(4)):not(:has(th:nth-child(5))) td:nth-child(3) {
+  width: 30%;
+}
+
+.unifil-textual table.abnt-quadro:has(th:nth-child(4)):not(:has(th:nth-child(5))) th:nth-child(4),
+.unifil-textual table.abnt-quadro:has(th:nth-child(4)):not(:has(th:nth-child(5))) td:nth-child(4) {
+  width: 30%;
 }
 
 .unifil-textual table td code,

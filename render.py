@@ -341,6 +341,59 @@ def _unescape_html(s: str) -> str:
     )
 
 
+def _preprocess_academic_markdown(md_text: str) -> str:
+    """
+    Pre-processa o Markdown academico antes da conversao para HTML:
+    - converte notacao LaTeX simples ($H_1$, $(H_{1})$, $X^{2}$) em sub/sup HTML;
+    - separa alineas consecutivas (a) ..., b) ...) em paragrafos distintos;
+    - remove comentarios HTML internos residuais fora de blocos de codigo.
+    """
+    lines = md_text.splitlines()
+    out: list[str] = []
+    in_code = False
+
+    def _convert_inline_math(segment: str) -> str:
+        # Converte $(H_{1})$ ou $H_{1}$ ou $H_1$ em H<sub>1</sub>
+        def _repl(m: re.Match) -> str:
+            expr = m.group(1).strip()
+            expr = re.sub(r"([A-Za-zÀ-ÿ0-9]+)_\{([^}]+)\}", r"\1<sub>\2</sub>", expr)
+            expr = re.sub(r"([A-Za-zÀ-ÿ0-9]+)_([A-Za-z0-9]+)", r"\1<sub>\2</sub>", expr)
+            expr = re.sub(r"([A-Za-zÀ-ÿ0-9]+)\^\{([^}]+)\}", r"\1<sup>\2</sup>", expr)
+            expr = re.sub(r"([A-Za-zÀ-ÿ0-9]+)\^([A-Za-z0-9]+)", r"\1<sup>\2</sup>", expr)
+            return expr
+
+        # Apenas expressoes curtas inline ($...$) sem quebras de linha
+        return re.sub(r"\$([^$\n]{1,40})\$", _repl, segment)
+
+    for line in lines:
+        if line.strip().startswith("```"):
+            in_code = not in_code
+            out.append(line)
+            continue
+        if in_code:
+            out.append(line)
+            continue
+
+        # Preserva codigo inline (`...`) ao converter math inline
+        parts = re.split(r"(`[^`]+`)", line)
+        converted_line = "".join(
+            p if p.startswith("`") else _convert_inline_math(p) for p in parts
+        )
+
+        # Se for uma alinea (a) ..., b) ...) imediatamente apos outra linha nao vazia, insere linha em branco
+        if (
+            re.match(r"^[a-z]\)\s+", converted_line.strip())
+            and out
+            and out[-1].strip() != ""
+            and not out[-1].strip().startswith(">")
+        ):
+            out.append("")
+
+        out.append(converted_line)
+
+    return "\n".join(out)
+
+
 def render_md_fragment(md_text: str) -> str:
     try:
         from markdown_it import MarkdownIt
@@ -348,6 +401,7 @@ def render_md_fragment(md_text: str) -> str:
         raise SystemExit(
             "Instale markdown-it-py: pip install markdown-it-py (ou execute via: uv run render.py ...)"
         )
+    md_text = _preprocess_academic_markdown(md_text)
     md_text = PAGEBREAK_COMMENT_RE.sub('<div class="unifil-pagebreak"></div>', md_text)
     md_text = QUADRO_COMMENT_RE.sub(
         lambda m: f'\n<div class="abnt-quadro">\n\n{m.group(1).strip()}\n\n</div>\n',
@@ -425,7 +479,7 @@ def _strip_md_inline(s: str) -> str:
     s = re.sub(r"\*\*(.+?)\*\*", r"\1", s)
     s = re.sub(r"__(.+?)__", r"\1", s)
     s = re.sub(r"\*(.+?)\*", r"\1", s)
-    s = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"\1", s)
+    s = re.sub(r"(?<!\w)_([^_\n]+?)_(?!\w)", r"\1", s)
     s = re.sub(r"`(.+?)`", r"\1", s)
     return s.strip()
 
@@ -433,18 +487,21 @@ def _strip_md_inline(s: str) -> str:
 def _clean_helper_notes(md_block: str) -> str:
     out = []
     for line in md_block.splitlines():
-        if re.match(r"^\*\(Nota de formata", line.strip(), re.I):
+        s = line.strip()
+        if re.match(r"^[*_]\(Nota\s+de\s+formata", s, re.I):
+            continue
+        if re.match(r"^<!--.*?-->$", s):
             continue
         out.append(line)
     return "\n".join(out)
 
 
 def _render_capa_html(body_md: str, logo_uri: str, org: dict) -> str:
-    """Converte o bloco # CAPA no layout oficial da Capa UniFil com logo."""
+    """Converte o bloco # CAPA no layout oficial da Capa UniFil com logo (somente titulo em portugues)."""
+    body_md = _clean_helper_notes(body_md)
     paras = [p.strip() for p in re.split(r"\n\s*\n", body_md) if p.strip()]
     author = ""
     title = ""
-    subtitle_en = ""
     bottom_lines: list[str] = []
 
     if paras:
@@ -453,10 +510,10 @@ def _render_capa_html(body_md: str, logo_uri: str, org: dict) -> str:
         title = _strip_md_inline(paras[1])
     for p in paras[2:]:
         clean = _strip_md_inline(p)
+        # Ignora eventuais subtitulos em lingua estrangeira colocados entre parenteses na capa
         if clean.startswith("(") and clean.endswith(")"):
-            subtitle_en = clean
-        else:
-            bottom_lines.append(p.replace("  \n", "<br>").replace("\n", "<br>"))
+            continue
+        bottom_lines.append(p.replace("  \n", "<br>").replace("\n", "<br>"))
 
     # Separa titulo principal : subtitulo se houver
     if ":" in title:
@@ -468,11 +525,6 @@ def _render_capa_html(body_md: str, logo_uri: str, org: dict) -> str:
     else:
         title_html = f'<div class="unifil-cover-title">{html_lib.escape(title)}</div>'
 
-    sub_en_html = (
-        f'<div class="unifil-cover-subtitle-en">{html_lib.escape(subtitle_en)}</div>'
-        if subtitle_en
-        else ""
-    )
     logo_html = (
         f'<div class="unifil-cover-logo-wrap"><img src="{logo_uri}" alt="{org.get("short_name", "UniFil")}" class="unifil-cover-logo"></div>'
         if logo_uri
@@ -488,7 +540,6 @@ def _render_capa_html(body_md: str, logo_uri: str, org: dict) -> str:
   </div>
   <div class="unifil-cover-center">
     {title_html}
-    {sub_en_html}
   </div>
   <div class="unifil-cover-bottom">
     {bottom_html}
@@ -498,17 +549,17 @@ def _render_capa_html(body_md: str, logo_uri: str, org: dict) -> str:
 
 
 def _render_folha_rosto_html(body_md: str, org: dict) -> str:
+    body_md = _clean_helper_notes(body_md)
     paras = [p.strip() for p in re.split(r"\n\s*\n", body_md) if p.strip()]
     author = _strip_md_inline(paras[0]) if paras else ""
     title = _strip_md_inline(paras[1]) if len(paras) >= 2 else ""
-    subtitle_en = ""
     natureza_paras = []
     bottom_html = ""
 
     for p in paras[2:]:
         clean = _strip_md_inline(p)
         if clean.startswith("(") and clean.endswith(")"):
-            subtitle_en = clean
+            continue
         elif p.startswith(">"):
             # Bloco de natureza / orientador
             inner = "\n".join(re.sub(r"^>\s?", "", ln) for ln in p.splitlines())
@@ -525,11 +576,6 @@ def _render_folha_rosto_html(body_md: str, org: dict) -> str:
     else:
         title_html = f'<div class="unifil-cover-title">{html_lib.escape(title)}</div>'
 
-    sub_en_html = (
-        f'<div class="unifil-cover-subtitle-en">{html_lib.escape(subtitle_en)}</div>'
-        if subtitle_en
-        else ""
-    )
     natureza_html = "".join(natureza_paras)
 
     return f"""
@@ -539,7 +585,6 @@ def _render_folha_rosto_html(body_md: str, org: dict) -> str:
   </div>
   <div class="unifil-title-page-middle">
     {title_html}
-    {sub_en_html}
   </div>
   <div class="unifil-natureza-wrap">
     {natureza_html}
@@ -665,7 +710,7 @@ def _render_siglas_html(title: str, body_md: str) -> str:
 
 
 def _render_toc_or_list_html(title: str, body_md: str, page_map: dict[str, int] | None = None) -> str:
-    items = []
+    rows = []
     for line in body_md.splitlines():
         s = line.strip()
         if not s:
@@ -685,32 +730,52 @@ def _render_toc_or_list_html(title: str, body_md: str, page_map: dict[str, int] 
             if nk in page_map:
                 page_str = str(page_map[nk])
 
-        # Nivel hierarquico para Sumario
+        # Nivel hierarquico para Sumario e separacao de indicativo numerico + titulo
         lvl = 1
-        num_m = re.match(r"^(\d+(?:\.\d+)*)\s+", label)
+        num_str = ""
+        title_text = _strip_md_inline(label)
+        num_m = re.match(r"^(\d+(?:\.\d+)*)\s+(.+)$", title_text)
         if num_m:
-            lvl = min(len(num_m.group(1).split(".")), 5)
+            num_str = num_m.group(1)
+            title_text = num_m.group(2).strip()
+            lvl = min(len(num_str.split(".")), 5)
 
-        items.append(
-            f'<li class="unifil-toc-row level-{lvl}">'
-            f'<span class="unifil-toc-title">{html_lib.escape(_strip_md_inline(label))}</span>'
-            f'<span class="unifil-toc-dots"></span>'
-            f'<span class="unifil-toc-page">{html_lib.escape(page_str)}</span>'
-            f"</li>"
-        )
+        if num_str:
+            rows.append(
+                f'<tr class="unifil-toc-row level-{lvl}">'
+                f'<td class="unifil-toc-num">{html_lib.escape(num_str)}</td>'
+                f'<td class="unifil-toc-title-cell"><div class="unifil-toc-line">'
+                f'<span class="unifil-toc-title">{html_lib.escape(title_text)}</span>'
+                f'<span class="unifil-toc-dots"></span>'
+                f'</div></td>'
+                f'<td class="unifil-toc-page">{html_lib.escape(page_str)}</td>'
+                f'</tr>'
+            )
+        else:
+            rows.append(
+                f'<tr class="unifil-toc-row level-{lvl}">'
+                f'<td class="unifil-toc-title-cell" colspan="2"><div class="unifil-toc-line">'
+                f'<span class="unifil-toc-title">{html_lib.escape(title_text)}</span>'
+                f'<span class="unifil-toc-dots"></span>'
+                f'</div></td>'
+                f'<td class="unifil-toc-page">{html_lib.escape(page_str)}</td>'
+                f'</tr>'
+            )
 
     return f"""
 <section class="unifil-pre-section">
   <h2 class="unifil-section-center-title">{html_lib.escape(title)}</h2>
-  <ul class="unifil-toc-list">
-    {"".join(items)}
-  </ul>
+  <table class="unifil-toc-table">
+    <tbody>
+      {"".join(rows)}
+    </tbody>
+  </table>
 </section>
 """
 
 
 def _postprocess_textual_html(html: str) -> str:
-    """Ajusta legendas de Quadro/Tabela/Figura, fontes, alineas e Quadros fechados."""
+    """Ajusta legendas de Quadro/Tabela/Figura, fontes, alineas, Quadros fechados e blocos coesos."""
     # Legendas: paragrafos iniciados por Quadro N, Tabela N, Figura N
     html = re.sub(
         r"<p>(<strong>(?:Quadro|Tabela|Figura|Gráfico)\s+\d+[^<]*</strong>[^<]*)</p>",
@@ -736,9 +801,32 @@ def _postprocess_textual_html(html: str) -> str:
         flags=re.S,
     )
     # Marca tabelas imediatamente apos legenda de Quadro como abnt-quadro (grade fechada)
+    # e agrupa legenda + tabela + fonte em bloco coeso para a legenda nao ficar orfa
     html = re.sub(
-        r'(<p class="unifil-caption">.*?Quadro\s+\d+.*?</p>\s*)<table>',
-        r'\1<table class="abnt-quadro">',
+        r'(<p class="unifil-caption">.*?Quadro\s+\d+.*?</p>)\s*<table>(.*?)</table>\s*(<p class="unifil-source">.*?</p>)?',
+        lambda m: (
+            '<div class="abnt-float-block">'
+            + m.group(1)
+            + '<table class="abnt-quadro">'
+            + m.group(2)
+            + '</table>'
+            + (m.group(3) or "")
+            + '</div>'
+        ),
+        html,
+        flags=re.S,
+    )
+    html = re.sub(
+        r'(<p class="unifil-caption">.*?Tabela\s+\d+.*?</p>)\s*<table>(.*?)</table>\s*(<p class="unifil-source">.*?</p>)?',
+        lambda m: (
+            '<div class="abnt-float-block">'
+            + m.group(1)
+            + '<table>'
+            + m.group(2)
+            + '</table>'
+            + (m.group(3) or "")
+            + '</div>'
+        ),
         html,
         flags=re.S,
     )

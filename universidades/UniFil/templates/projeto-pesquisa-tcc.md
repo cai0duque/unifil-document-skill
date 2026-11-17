@@ -17,8 +17,6 @@ title: "{Título do Projeto de Pesquisa}"
 
 **{TÍTULO DO TRABALHO}: {SUBTÍTULO, SE HOUVER}**
 
-*(English Title: Subtitle, if any)*
-
 Londrina  
 2026
 
@@ -29,8 +27,6 @@ Londrina
 **{NOME COMPLETO DO AUTOR}**
 
 **{TÍTULO DO TRABALHO}: {SUBTÍTULO, SE HOUVER}**
-
-*(English Title: Subtitle, if any)*
 
 > Projeto de Pesquisa apresentado ao Curso de Ciência da Computação do Centro Universitário Filadélfia (UniFil), como requisito parcial para o desenvolvimento do Trabalho de Conclusão de Curso e obtenção do título de Bacharel em Ciência da Computação.
 >
@@ -142,7 +138,7 @@ REFERÊNCIAS .......... p. X
 
 ## 1.3 HIPÓTESE E EVIDÊNCIAS
 
-> **Hipótese ($H_1$):** {Enunciado claro e testável da relação esperada entre a intervenção proposta e os indicadores observados.}
+> **Hipótese (H<sub>1</sub>):** {Enunciado claro e testável da relação esperada entre a intervenção proposta e os indicadores observados.}
 
 a) Evidências do problema: {Estudos empíricos que comprovam a existência e gravidade do problema.}
 
@@ -160,8 +156,10 @@ b) Evidências para a hipótese: {Estudos prévios que sustentam a plausibilidad
 
 ### 1.5.2 Objetivos Específicos
 
-a) {Objetivo específico 1};  
-b) {Objetivo específico 2};  
+a) {Objetivo específico 1};
+
+b) {Objetivo específico 2};
+
 c) {Objetivo específico 3}.
 
 ## 1.6 VISÃO GERAL E JUSTIFICATIVA DA METODOLOGIA
