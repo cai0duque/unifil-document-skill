@@ -1,0 +1,33 @@
+# Configuracao da instituicao Centro Universitario Filadelfia (UniFil)
+slug: UniFil
+display_name: "Centro Universitário Filadélfia - UniFil"
+short_name: "UniFil"
+legal_name: "Centro Universitário Filadélfia"
+city: "Londrina"
+state: "PR"
+website: "unifil.br"
+
+# Identidade e padrao tipografico oficial (conforme modelo oficial UniFil .docx e Ebook ABNT 2026)
+logo_file: "unifil-logo-trabalho-academico.png"
+font_family: "Arial"
+font_size_body_pt: 12
+font_size_small_pt: 10
+font_size_cover_pt: 14
+
+# Margens ABNT NBR 14724 (em mm)
+margins:
+  top: "30mm"
+  left: "30mm"
+  bottom: "20mm"
+  right: "20mm"
+
+# Tag padrao de capa para trabalhos sem frontmatter
+brand_tagline: "Trabalho Acadêmico"
+footer_left: "Centro Universitário Filadélfia - UniFil"
+footer_right: "Londrina - PR"
+
+notes: |
+  - Logo oficial em universidades/UniFil/unifil-logo-trabalho-academico.png (607x167 PNG).
+  - Modelo oficial da instituicao preservado em universidades/UniFil/templates/modelo-de-trabalho-unifil-graduacao.docx.
+  - Fontes Arial (via local('Arial') + Liberation Sans metrica-identica embutida em base64 para execucao 100% offline).
+  - Normas seguidas: ABNT NBR 14724 (2024), NBR 6023 (2025), NBR 6024 (2012), NBR 6027 (2012), NBR 6028 (2021), NBR 10520 (2023) e IBGE.

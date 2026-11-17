@@ -1,0 +1,703 @@
+/* ============================================
+   Folha de Estilos Oficial - UniFil / ABNT
+   Layout extraido do modelo oficial modelo-de-trabalho-unifil-graduacao.docx
+   ============================================ */
+
+/* === RESET E BASE === */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  font-family: var(--abnt-font-sans, 'Arial', sans-serif);
+  font-size: var(--abnt-size-body, 12pt);
+  line-height: var(--abnt-leading-body, 1.5);
+  color: var(--abnt-text, #000000);
+  background: var(--abnt-bg, #FFFFFF);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "calt" 0, "liga" 0;
+  font-variant-ligatures: none;
+}
+
+/* === PAGINACAO E MARGENS ABNT (3 cm sup/esq, 2 cm inf/dir) === */
+@page {
+  size: A4;
+  margin: 30mm 20mm 20mm 30mm;
+}
+
+@page cover {
+  size: A4;
+  margin: 30mm 20mm 20mm 30mm;
+  @top-right { content: none; }
+}
+
+@page pretext {
+  size: A4;
+  margin: 30mm 20mm 20mm 30mm;
+  @top-right { content: none; }
+}
+
+@page textual {
+  size: A4;
+  margin: 30mm 20mm 20mm 30mm;
+  @top-right {
+    content: counter(page);
+    font-family: 'Arial', 'Liberation Sans', sans-serif;
+    font-size: 10pt;
+    color: #000000;
+    vertical-align: bottom;
+    padding-bottom: 6mm;
+  }
+}
+
+/* === CAPA OFICIAL UNIFIL === */
+.unifil-cover {
+  page: cover;
+  min-height: calc(297mm - 50.5mm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: center;
+  break-after: page;
+  page-break-after: always;
+}
+
+.unifil-cover-logo-wrap {
+  text-align: center;
+  margin-bottom: 14pt;
+}
+
+.unifil-cover-logo {
+  width: var(--abnt-logo-width, 9.9cm);
+  max-width: 100%;
+  height: auto;
+  display: inline-block;
+}
+
+.unifil-cover-author {
+  font-size: var(--abnt-size-cover, 14pt);
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: 1.5;
+  margin-top: 8pt;
+}
+
+.unifil-cover-center {
+  margin: auto 0;
+  padding: 20pt 0;
+}
+
+.unifil-cover-title {
+  font-size: var(--abnt-size-cover, 14pt);
+  font-weight: 700;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.unifil-cover-subtitle {
+  font-size: var(--abnt-size-cover, 14pt);
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: 1.4;
+  margin-top: 4pt;
+}
+
+.unifil-cover-subtitle-en {
+  font-size: 11pt;
+  font-weight: 400;
+  font-style: italic;
+  margin-top: 10pt;
+  color: #333333;
+}
+
+.unifil-cover-bottom {
+  font-size: var(--abnt-size-body, 12pt);
+  line-height: 1.5;
+}
+
+/* === FOLHA DE ROSTO & BANCA EXAMINADORA === */
+.unifil-pretext-page {
+  page: pretext;
+  min-height: calc(297mm - 50.5mm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  break-after: page;
+  page-break-after: always;
+}
+
+.unifil-title-page-top {
+  text-align: center;
+}
+
+.unifil-title-page-author {
+  font-size: 14pt;
+  font-weight: 400;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+.unifil-title-page-middle {
+  text-align: center;
+  margin-top: 42mm;
+}
+
+.unifil-natureza-wrap {
+  margin-left: 50%;
+  margin-top: 24pt;
+  margin-bottom: 18pt;
+  text-align: justify;
+  font-size: 12pt;
+  line-height: var(--abnt-leading-single, 1.15);
+}
+
+.unifil-natureza-wrap p {
+  text-indent: 0;
+  margin-bottom: 10pt;
+}
+
+.unifil-banca-heading {
+  text-align: center;
+  font-size: 12pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 18pt 0 18pt 0;
+}
+
+.unifil-banca-membro {
+  margin-left: 38%;
+  text-align: center;
+  font-size: 12pt;
+  line-height: 1.25;
+  margin-bottom: 18pt;
+}
+
+.unifil-banca-membro .unifil-banca-line {
+  display: block;
+  border-bottom: 1px solid #000000;
+  margin-bottom: 4pt;
+  height: 18pt;
+}
+
+.unifil-banca-data {
+  text-align: center;
+  font-size: 12pt;
+  margin-top: 12pt;
+}
+
+/* === SECOES PRE-TEXTUAIS GENERICAS (RESUMO, ABSTRACT, LISTAS, SUMARIO) === */
+.unifil-pre-section {
+  page: pretext;
+  break-after: page;
+  page-break-after: always;
+}
+
+.unifil-section-center-title {
+  text-align: center;
+  font-size: 12pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0 0 18pt 0;
+  line-height: 1.5;
+}
+
+.unifil-resumo-ref {
+  font-size: 12pt;
+  line-height: var(--abnt-leading-single, 1.15);
+  text-align: left;
+  margin-bottom: 18pt;
+  text-indent: 0;
+}
+
+.unifil-resumo-body p {
+  font-size: 12pt;
+  line-height: var(--abnt-leading-single, 1.15);
+  text-align: justify;
+  text-indent: 0;
+  margin-bottom: 12pt;
+}
+
+.unifil-keywords {
+  font-size: 12pt;
+  line-height: var(--abnt-leading-single, 1.15);
+  text-align: justify;
+  text-indent: 0;
+  margin-top: 12pt;
+}
+
+/* === LISTAS DE SIGLAS, TABELAS, QUADROS, SUMARIO === */
+.unifil-siglas-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: none;
+  margin: 0;
+}
+
+.unifil-siglas-table td {
+  border: none;
+  padding: 2pt 6pt 2pt 0;
+  font-size: 12pt;
+  line-height: 1.35;
+  vertical-align: top;
+  text-align: left;
+}
+
+.unifil-siglas-table td:first-child {
+  width: 110px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.unifil-toc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.unifil-toc-row {
+  display: flex;
+  align-items: flex-end;
+  font-size: 12pt;
+  line-height: 1.45;
+  margin-bottom: 3pt;
+}
+
+.unifil-toc-row.level-1 { font-weight: 700; text-transform: uppercase; margin-top: 4pt; }
+.unifil-toc-row.level-2 { font-weight: 400; text-transform: uppercase; padding-left: 0; }
+.unifil-toc-row.level-3 { font-weight: 400; padding-left: 0; }
+.unifil-toc-row.level-4 { font-weight: 400; padding-left: 0; }
+.unifil-toc-row.level-5 { font-style: italic; font-weight: 400; padding-left: 0; }
+
+.unifil-toc-title {
+  flex: 0 1 auto;
+}
+
+.unifil-toc-dots {
+  flex: 1 1 auto;
+  border-bottom: 1px dotted #000000;
+  margin: 0 6pt 4pt 6pt;
+  min-width: 16pt;
+}
+
+.unifil-toc-page {
+  flex: 0 0 auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* === DEDICATORIA, AGRADECIMENTOS, EPIGRAFE === */
+.unifil-dedicatoria {
+  page: pretext;
+  min-height: calc(297mm - 50.5mm);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  break-after: page;
+  page-break-after: always;
+}
+
+.unifil-dedicatoria-inner {
+  margin-left: 50%;
+  text-align: right;
+  font-size: 12pt;
+  line-height: 1.5;
+  margin-bottom: 20mm;
+}
+
+.unifil-agradecimentos p {
+  font-size: 12pt;
+  line-height: 1.5;
+  text-align: justify;
+  text-indent: var(--abnt-indent-p, 1.5cm);
+  margin-bottom: 0;
+}
+
+/* === CORPO TEXTUAL (NBR 6024, NBR 10520, NBR 14724) === */
+.unifil-textual {
+  page: textual;
+}
+
+.unifil-textual h1 {
+  font-size: 12pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  text-align: left;
+  text-indent: 0;
+  line-height: 1.5;
+  margin: 0 0 18pt 0;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+/* Em monografias e projetos de pesquisa, secao primaria inicia em nova pagina */
+.unifil-mode-monografia .unifil-textual h1.unifil-h1-break {
+  break-before: page;
+  page-break-before: always;
+}
+
+/* Em artigos / trabalhos simples, mantem fluxo continuo sem quebra forcada antes de cada H1 */
+.unifil-mode-artigo .unifil-textual h1 {
+  margin-top: 18pt;
+  break-before: auto;
+  page-break-before: auto;
+}
+
+.unifil-textual h2 {
+  font-size: 12pt;
+  font-weight: 400;
+  text-transform: uppercase;
+  text-align: left;
+  text-indent: 0;
+  line-height: 1.5;
+  margin: 18pt 0 18pt 0;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.unifil-textual h3 {
+  font-size: 12pt;
+  font-weight: 400;
+  text-transform: none;
+  text-align: left;
+  text-indent: 0;
+  line-height: 1.5;
+  margin: 18pt 0 18pt 0;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.unifil-textual h4 {
+  font-size: 12pt;
+  font-weight: 400;
+  text-transform: none;
+  text-align: left;
+  text-indent: 0;
+  line-height: 1.5;
+  margin: 18pt 0 18pt 0;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.unifil-textual h5 {
+  font-size: 12pt;
+  font-weight: 400;
+  font-style: italic;
+  text-transform: none;
+  text-align: left;
+  text-indent: 0;
+  line-height: 1.5;
+  margin: 18pt 0 18pt 0;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.unifil-textual p {
+  font-size: 12pt;
+  line-height: var(--abnt-leading-body, 1.5);
+  text-align: justify;
+  text-indent: var(--abnt-indent-p, 1.5cm);
+  margin: 0;
+}
+
+/* Alíneas e listas no corpo ABNT */
+.unifil-textual p.unifil-alinea {
+  margin-left: 1.5cm;
+  padding-left: 0.7cm;
+  text-indent: -0.7cm;
+  text-align: justify;
+  line-height: 1.5;
+}
+
+.unifil-textual ul,
+.unifil-textual ol {
+  margin: 6pt 0 6pt 2.2cm;
+  padding: 0;
+}
+
+.unifil-textual li {
+  font-size: 12pt;
+  line-height: 1.5;
+  text-align: justify;
+  margin-bottom: 3pt;
+}
+
+/* Citações diretas longas (> 3 linhas): 10pt, recuo 4cm, espaço simples, sem aspas */
+.unifil-textual blockquote:not(.ra-alert) {
+  margin: 14pt 0 14pt var(--abnt-indent-quote, 4.0cm);
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: var(--abnt-size-small, 10pt);
+  line-height: var(--abnt-leading-single, 1.15);
+  text-align: justify;
+  color: #000000;
+}
+
+.unifil-textual blockquote:not(.ra-alert) p {
+  font-size: var(--abnt-size-small, 10pt);
+  line-height: var(--abnt-leading-single, 1.15);
+  text-indent: 0;
+  margin-bottom: 6pt;
+}
+
+.unifil-textual blockquote:not(.ra-alert) p:last-child {
+  margin-bottom: 0;
+}
+
+/* === TABELAS IBGE E QUADROS ABNT === */
+.unifil-textual p.unifil-caption {
+  font-size: 12pt;
+  line-height: 1.25;
+  text-indent: 0;
+  text-align: left;
+  margin: 14pt 0 6pt 0;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+.unifil-textual p.unifil-source {
+  font-size: 10pt;
+  line-height: 1.15;
+  text-indent: 0;
+  text-align: left;
+  margin: 4pt 0 14pt 0;
+}
+
+/* Padrao IBGE: sem bordas verticais externas ou internas; fundo branco */
+.unifil-textual table {
+  width: 100%;
+  max-width: 100%;
+  border-collapse: collapse;
+  margin: 6pt 0 4pt 0;
+  font-size: var(--abnt-size-table, 10pt);
+  line-height: 1.25;
+  border-top: 1.5px solid #000000;
+  border-bottom: 1.5px solid #000000;
+  border-left: none;
+  border-right: none;
+  background: #FFFFFF;
+}
+
+.unifil-textual table th,
+.unifil-textual table td {
+  padding: 5pt 6pt;
+  border-left: none;
+  border-right: none;
+  vertical-align: top;
+  overflow-wrap: break-word;
+  word-break: normal;
+  color: #000000;
+  background: #FFFFFF;
+}
+
+.unifil-textual table thead th {
+  font-weight: 700;
+  border-bottom: 1px solid #000000;
+}
+
+.unifil-textual table tbody tr {
+  border-bottom: 0.5px solid #CCCCCC;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.unifil-textual table tbody tr:last-child {
+  border-bottom: none;
+}
+
+/* Quadros (grade fechada nas quatro laterais) */
+.unifil-textual .abnt-quadro table,
+.unifil-textual table.abnt-quadro {
+  border: 1px solid #000000;
+  font-size: 9.5pt;
+  line-height: 1.25;
+}
+
+.unifil-textual .abnt-quadro table th,
+.unifil-textual .abnt-quadro table td,
+.unifil-textual table.abnt-quadro th,
+.unifil-textual table.abnt-quadro td {
+  border: 1px solid #000000;
+  padding: 4pt 5pt;
+}
+
+.unifil-textual table td code,
+.unifil-textual table th code,
+.unifil-textual table td a,
+.unifil-textual table th a {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* === REFERENCIAS (NBR 6023) === */
+.unifil-referencias {
+  page: textual;
+}
+
+.unifil-mode-monografia .unifil-referencias {
+  break-before: page;
+  page-break-before: always;
+}
+
+.unifil-mode-artigo .unifil-referencias {
+  margin-top: 24pt;
+}
+
+.unifil-referencias p {
+  font-size: 12pt;
+  line-height: var(--abnt-leading-single, 1.15);
+  text-align: left;
+  text-indent: 0;
+  margin-bottom: 12pt;
+  overflow-wrap: anywhere;
+}
+
+.unifil-referencias a {
+  color: #000000;
+  text-decoration: none;
+}
+
+/* === IMAGENS, CODIGO E MERMAID (PARA TRABALHOS DE COMPUTACAO) === */
+.unifil-textual img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 8pt auto;
+}
+
+.unifil-textual code {
+  font-family: var(--abnt-font-mono, monospace);
+  font-size: 0.9em;
+  background: #F3F4F6;
+  padding: 1pt 3pt;
+  border-radius: 2pt;
+}
+
+.unifil-textual pre {
+  font-family: var(--abnt-font-mono, monospace);
+  font-size: 9.5pt;
+  line-height: 1.35;
+  background: #F8F9FA;
+  border: 1px solid #D1D5DB;
+  border-radius: 3pt;
+  padding: 8pt 10pt;
+  margin: 10pt 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.unifil-textual pre code {
+  background: transparent;
+  padding: 0;
+  font-size: inherit;
+}
+
+.unifil-textual pre.mermaid {
+  background: transparent;
+  border: none;
+  padding: 8pt 0;
+  text-align: center;
+  overflow: visible;
+}
+
+.unifil-textual pre.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* === CALLOUTS OPCIONAIS (PARA GUIAS/RELATORIOS DE DISCIPLINA) === */
+.unifil-textual blockquote.ra-alert {
+  border-left: 4px solid var(--unifil-orange, #F38221);
+  background: var(--unifil-orange-light, #FEF3E8);
+  padding: 8pt 12pt;
+  margin: 12pt 0;
+  font-size: 11pt;
+  line-height: 1.4;
+  text-indent: 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.unifil-textual blockquote.ra-alert p {
+  font-size: 11pt;
+  line-height: 1.4;
+  text-indent: 0;
+  margin-bottom: 4pt;
+}
+
+.unifil-textual blockquote.ra-alert p:last-child {
+  margin-bottom: 0;
+}
+
+.unifil-textual .ra-alert-title {
+  display: block;
+  font-size: 10pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 4pt;
+  color: #B45309;
+}
+
+.unifil-textual blockquote.ra-alert-note { background: #EEF2FF; border-left-color: #3B82F6; }
+.unifil-textual blockquote.ra-alert-note .ra-alert-title { color: #1D4ED8; }
+.unifil-textual blockquote.ra-alert-tip { background: #ECFDF5; border-left-color: #10B981; }
+.unifil-textual blockquote.ra-alert-tip .ra-alert-title { color: #047857; }
+.unifil-textual blockquote.ra-alert-warning { background: #FFFBEB; border-left-color: #F59E0B; }
+.unifil-textual blockquote.ra-alert-warning .ra-alert-title { color: #B45309; }
+.unifil-textual blockquote.ra-alert-caution { background: #FEF2F2; border-left-color: #EF4444; }
+.unifil-textual blockquote.ra-alert-caution .ra-alert-title { color: #B91C1C; }
+
+/* === CHECKBOXES E QUEBRA MANUAL === */
+.unifil-textual li.ra-task-item {
+  list-style: none;
+  margin-left: -14pt;
+}
+
+.unifil-textual .ra-checkbox {
+  display: inline-block;
+  width: 10pt;
+  height: 10pt;
+  border: 1px solid #374151;
+  border-radius: 2pt;
+  margin-right: 6pt;
+  vertical-align: -1pt;
+  background: #FFFFFF;
+}
+
+.unifil-textual .ra-checkbox-checked {
+  background: var(--unifil-orange, #F38221);
+  border-color: var(--unifil-orange, #F38221);
+  position: relative;
+}
+
+.unifil-textual .ra-checkbox-checked::after {
+  content: "";
+  position: absolute;
+  left: 2.5pt;
+  top: 0.5pt;
+  width: 3pt;
+  height: 6pt;
+  border: solid #FFFFFF;
+  border-width: 0 1.5pt 1.5pt 0;
+  transform: rotate(45deg);
+}
+
+.unifil-pagebreak {
+  page-break-after: always;
+  break-after: page;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+/* Notas internas de rascunho/formatacao do docx marcadas em italico */
+.unifil-meta-note {
+  display: none;
+}

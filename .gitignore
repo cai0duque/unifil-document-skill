@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+*.pdf
+!universidades/*/templates/*.pdf
+.DS_Store

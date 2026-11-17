@@ -1,0 +1,40 @@
+/* ============================================
+   UniFil / ABNT - Design Tokens
+   Baseado no modelo oficial UniFil (.docx) e Ebook ABNT 2026
+   ============================================ */
+
+:root {
+  /* === IDENTIDADE UNIFIL === */
+  --unifil-orange:       #F38221;
+  --unifil-orange-light: #FEF3E8;
+  --unifil-gray:         #58595B;
+  --unifil-gray-light:   #F5F5F6;
+  --unifil-border:       #D1D5DB;
+
+  /* === CORES ABNT (PRETO NO BRANCO) === */
+  --abnt-text:           #000000;
+  --abnt-bg:             #FFFFFF;
+  --abnt-rule:           #000000;
+
+  /* === TIPOGRAFIA (MANTER ARIAL) === */
+  --abnt-font-sans:      'Arial', 'Liberation Sans', 'Helvetica Neue', sans-serif;
+  --abnt-font-mono:      'Liberation Mono', 'Courier New', monospace;
+
+  --abnt-size-cover:     14pt;
+  --abnt-size-body:      12pt;
+  --abnt-size-table:     10pt;
+  --abnt-size-small:     10pt;
+
+  --abnt-leading-body:   1.5;
+  --abnt-leading-single: 1.15;
+
+  /* === MEDIDAS OFICIAIS (NBR 14724 + .docx UniFil) === */
+  --abnt-margin-top:     30mm;
+  --abnt-margin-left:    30mm;
+  --abnt-margin-bottom:  20mm;
+  --abnt-margin-right:   20mm;
+
+  --abnt-indent-p:       1.5cm;
+  --abnt-indent-quote:   4.0cm;
+  --abnt-logo-width:     9.9cm;
+}

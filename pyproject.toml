@@ -1,0 +1,12 @@
+[project]
+name = "unifil-document-skill"
+version = "1.0.0"
+description = "Gerador de documentos academicos e cientificos em PDF seguindo as normas da UniFil e da ABNT"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "playwright>=1.40.0",
+    "pyyaml>=6.0",
+    "markdown-it-py>=3.0.0",
+    "pypdf>=4.0.0",
+]
