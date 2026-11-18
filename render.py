@@ -24,6 +24,7 @@ Uso:
 import argparse
 import base64
 import html as html_lib
+import mimetypes
 import os
 import re
 import shutil
@@ -31,6 +32,7 @@ import sys
 import tempfile
 import unicodedata
 from pathlib import Path
+from urllib.parse import unquote
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -401,7 +403,45 @@ def _preprocess_academic_markdown(md_text: str) -> str:
     return "\n".join(out)
 
 
-def render_md_fragment(md_text: str) -> str:
+def _inline_local_images(html: str, base_dir: Path | None = None) -> str:
+    """Converte imagens locais (<img src="...">) em data URIs base64 para renderizacao isolada."""
+    img_re = re.compile(r'(<img\b[^>]*?\bsrc=)(["\'])([^"\']+)\2([^>]*>)', re.I)
+
+    def _repl(m: re.Match) -> str:
+        prefix, quote, raw_src, suffix = m.groups()
+        src = html_lib.unescape(raw_src).strip()
+        if src.startswith(("data:", "http://", "https://", "file://", "#")):
+            return m.group(0)
+        rel_path = Path(unquote(src))
+        candidates = []
+        if rel_path.is_absolute():
+            candidates.append(rel_path)
+        else:
+            if base_dir is not None:
+                candidates.append((base_dir / rel_path).resolve())
+            candidates.append((Path.cwd() / rel_path).resolve())
+            candidates.append((SKILL_ROOT / rel_path).resolve())
+        for cand in candidates:
+            if cand.exists() and cand.is_file():
+                mime, _ = mimetypes.guess_type(str(cand))
+                if not mime:
+                    ext = cand.suffix.lower()
+                    mime = {
+                        ".png": "image/png",
+                        ".jpg": "image/jpeg",
+                        ".jpeg": "image/jpeg",
+                        ".svg": "image/svg+xml",
+                        ".webp": "image/webp",
+                        ".gif": "image/gif",
+                    }.get(ext, "application/octet-stream")
+                b64 = base64.b64encode(cand.read_bytes()).decode("ascii")
+                return f'{prefix}{quote}data:{mime};base64,{b64}{quote}{suffix}'
+        return m.group(0)
+
+    return img_re.sub(_repl, html)
+
+
+def render_md_fragment(md_text: str, base_dir: Path | None = None) -> str:
     try:
         from markdown_it import MarkdownIt
     except ImportError:
@@ -443,7 +483,7 @@ def render_md_fragment(md_text: str) -> str:
         lambda m: f'<li class="ra-task-item"><span class="ra-checkbox{" ra-checkbox-checked" if m.group(1).lower() == "x" else ""}"></span>',
         html,
     )
-    return html
+    return _inline_local_images(html, base_dir=base_dir)
 
 
 def split_top_h1_sections(md_text: str) -> list[tuple[str | None, str]]:
@@ -783,14 +823,14 @@ def _render_toc_or_list_html(title: str, body_md: str, page_map: dict[str, int] 
 
 def _postprocess_textual_html(html: str) -> str:
     """Ajusta legendas de Quadro/Tabela/Figura, fontes, alineas, Quadros fechados e blocos coesos."""
-    # Legendas: paragrafos iniciados por Quadro N, Tabela N, Figura N
+    # Legendas: paragrafos iniciados por Quadro N, Tabela N, Figura N, Grafico N, Ilustracao N
     html = re.sub(
-        r"<p>(<strong>(?:Quadro|Tabela|Figura|Gráfico)\s+\d+[^<]*</strong>[^<]*)</p>",
+        r"<p>(<strong>(?:Quadro|Tabela|Figura|Gráfico|Ilustração)\s+\d+[^<]*</strong>[^<]*)</p>",
         r'<p class="unifil-caption">\1</p>',
         html,
     )
     html = re.sub(
-        r"<p>((?:Quadro|Tabela|Figura|Gráfico)\s+\d+\s*[-–:].*?)</p>",
+        r"<p>((?:Quadro|Tabela|Figura|Gráfico|Ilustração)\s+\d+\s*[-–:].*?)</p>",
         r'<p class="unifil-caption">\1</p>',
         html,
     )
@@ -837,6 +877,27 @@ def _postprocess_textual_html(html: str) -> str:
         html,
         flags=re.S,
     )
+    # Agrupa legenda + figura/ilustracao + fonte em bloco coeso e remove recuo de 1.5cm da imagem
+    html = re.sub(
+        r'(<p class="unifil-caption">.*?</p>)\s*<p>\s*(<img\b[^>]*>)\s*</p>\s*(<p class="unifil-source">.*?</p>)?',
+        lambda m: (
+            '<div class="abnt-float-block">'
+            + m.group(1)
+            + '<p class="unifil-figure-wrap">'
+            + m.group(2)
+            + '</p>'
+            + (m.group(3) or "")
+            + '</div>'
+        ),
+        html,
+        flags=re.S,
+    )
+    html = re.sub(
+        r'<p>\s*(<img\b[^>]*>)\s*</p>',
+        r'<p class="unifil-figure-wrap">\1</p>',
+        html,
+        flags=re.S,
+    )
     return html
 
 
@@ -846,6 +907,7 @@ def build_split_html(
     title: str = "Documento Acadêmico",
     mode: str | None = None,
     page_map: dict[str, int] | None = None,
+    base_dir: Path | None = None,
 ) -> tuple[str | None, str]:
     """
     Retorna (capa_html_doc, miolo_html_doc).
@@ -872,7 +934,7 @@ def build_split_html(
     for sec_title, sec_body in sections:
         if sec_title is None:
             if sec_body.strip():
-                textual_fragments.append(_postprocess_textual_html(render_md_fragment(sec_body)))
+                textual_fragments.append(_postprocess_textual_html(render_md_fragment(sec_body, base_dir=base_dir)))
             continue
 
         norm = _strip_accents(sec_title).upper().strip()
@@ -885,11 +947,11 @@ def build_split_html(
             pretext_fragments.append(_render_banca_html(sec_body))
         elif norm in ("DEDICATORIA",):
             pretext_fragments.append(
-                f'<section class="unifil-dedicatoria"><div class="unifil-dedicatoria-inner">{render_md_fragment(sec_body)}</div></section>'
+                f'<section class="unifil-dedicatoria"><div class="unifil-dedicatoria-inner">{render_md_fragment(sec_body, base_dir=base_dir)}</div></section>'
             )
         elif norm.startswith("AGRADECIMENTO"):
             pretext_fragments.append(
-                f'<section class="unifil-pre-section unifil-agradecimentos"><h2 class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{render_md_fragment(sec_body)}</section>'
+                f'<section class="unifil-pre-section unifil-agradecimentos"><h2 class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{render_md_fragment(sec_body, base_dir=base_dir)}</section>'
             )
         elif norm in ("RESUMO", "ABSTRACT"):
             pretext_fragments.append(_render_resumo_html(sec_title, sec_body))
@@ -899,17 +961,17 @@ def build_split_html(
             pretext_fragments.append(_render_toc_or_list_html(sec_title, sec_body, page_map))
         elif norm == "REFERENCIAS":
             post_fragments.append(
-                f'<section class="unifil-referencias"><h2 class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{render_md_fragment(sec_body)}</section>'
+                f'<section class="unifil-referencias"><h2 class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{render_md_fragment(sec_body, base_dir=base_dir)}</section>'
             )
         elif norm.startswith("APENDICE") or norm.startswith("ANEXO"):
             post_fragments.append(
-                f'<section class="unifil-referencias"><h2 class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{_postprocess_textual_html(render_md_fragment(sec_body))}</section>'
+                f'<section class="unifil-referencias"><h2 class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{_postprocess_textual_html(render_md_fragment(sec_body, base_dir=base_dir))}</section>'
             )
         else:
             textual_h1_count += 1
             cls = ' class="unifil-h1-break"' if textual_h1_count > 1 else ""
             h1_html = f"<h1{cls}>{html_lib.escape(sec_title)}</h1>"
-            body_html = _postprocess_textual_html(render_md_fragment(sec_body))
+            body_html = _postprocess_textual_html(render_md_fragment(sec_body, base_dir=base_dir))
             textual_fragments.append(h1_html + "\n" + body_html)
 
     font_face_css = org.get("_font_face_css", "")
@@ -1194,6 +1256,7 @@ def generate_academic_pdf(
     mode: str | None = None,
     chrome_bin: str | None = None,
     sync_toc: bool = True,
+    base_dir: Path | None = None,
 ) -> dict[str, int]:
     try:
         from playwright.sync_api import sync_playwright
@@ -1202,7 +1265,9 @@ def generate_academic_pdf(
             "Instale Playwright: pip install playwright (ou execute via: uv run render.py ...)"
         )
 
-    capa_html, miolo_html_p1 = build_split_html(md_text, org, title=title, mode=mode)
+    capa_html, miolo_html_p1 = build_split_html(
+        md_text, org, title=title, mode=mode, base_dir=base_dir
+    )
     page_map: dict[str, int] = {}
 
     with sync_playwright() as p:
@@ -1236,7 +1301,7 @@ def generate_academic_pdf(
                 page_map = _extract_toc_page_map(miolo_p1_pdf, md_text)
                 if page_map:
                     _, miolo_html_p2 = build_split_html(
-                        md_text, org, title=title, mode=mode, page_map=page_map
+                        md_text, org, title=title, mode=mode, page_map=page_map, base_dir=base_dir
                     )
                     miolo_p2_pdf = tmp_dir / "miolo_p2.pdf"
                     _render_html_to_pdf(page, miolo_html_p2, miolo_p2_pdf)
@@ -1348,6 +1413,7 @@ def main() -> None:
             mode=args.mode,
             chrome_bin=args.chrome_bin,
             sync_toc=not args.no_toc_sync,
+            base_dir=md_path.parent,
         )
         print(f" PDF gerado: {out_pdf}")
 
@@ -1369,6 +1435,7 @@ def main() -> None:
             mode=args.mode,
             page_map=page_map or None,
             uni_dir=UNIS_DIR / args.uni,
+            base_dir=md_path.parent,
         )
         print(f" DOCX gerado: {out_docx}")
 

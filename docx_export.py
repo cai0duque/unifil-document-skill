@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from pathlib import Path
+from urllib.parse import unquote
 
 from docx import Document
 from docx.enum.section import WD_SECTION
@@ -175,6 +176,20 @@ def _configure_abnt_section(sect) -> None:
     sect.footer_distance = Cm(1.25)
 
 
+def _ensure_section_next_page(sect) -> None:
+    """Garante <w:type w:val='nextPage'/> explicito no sectPr para separacao fiel no Word e Google Docs."""
+    sectPr = sect._sectPr
+    for el in sectPr.findall(qn("w:type")):
+        sectPr.remove(el)
+    type_el = OxmlElement("w:type")
+    type_el.set(qn("w:val"), "nextPage")
+    pg_sz = sectPr.find(qn("w:pgSz"))
+    if pg_sz is not None:
+        sectPr.insert(list(sectPr).index(pg_sz), type_el)
+    else:
+        sectPr.append(type_el)
+
+
 def _set_section_pgnum_start(sect, start: int | None) -> None:
     sectPr = sect._sectPr
     for el in sectPr.findall(qn("w:pgNumType")):
@@ -182,10 +197,15 @@ def _set_section_pgnum_start(sect, start: int | None) -> None:
     if start is not None:
         pg = OxmlElement("w:pgNumType")
         pg.set(qn("w:start"), str(start))
-        sectPr.append(pg)
+        cols = sectPr.find(qn("w:cols"))
+        if cols is not None:
+            sectPr.insert(list(sectPr).index(cols), pg)
+        else:
+            sectPr.append(pg)
 
 
 def _add_page_number_header(sect) -> None:
+    sect.different_first_page_header_footer = False
     sect.header.is_linked_to_previous = False
     p = sect.header.paragraphs[0]
     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
@@ -207,9 +227,18 @@ def _add_page_number_header(sect) -> None:
 
 
 def _clear_header(sect) -> None:
+    sect.different_first_page_header_footer = False
     sect.header.is_linked_to_previous = False
-    p = sect.header.paragraphs[0]
-    p.text = ""
+    hdr_el = sect.header._element
+    for child in list(hdr_el):
+        hdr_el.remove(child)
+    p = OxmlElement("w:p")
+    pPr = OxmlElement("w:pPr")
+    pStyle = OxmlElement("w:pStyle")
+    pStyle.set(qn("w:val"), "Header")
+    pPr.append(pStyle)
+    p.append(pPr)
+    hdr_el.append(p)
 
 
 def _set_cell_borders(cell, **edges) -> None:
@@ -333,6 +362,25 @@ def _add_md_table(doc: Document, lines: list[str], is_quadro: bool) -> None:
                 _set_cell_borders(cell, top=top_b, bottom=bot_b, left=None, right=None)
 
 
+def _resolve_image_path(src: str, base_dir: Path | None = None) -> Path | None:
+    """Resolve caminho local de imagem Markdown relativo ao arquivo .md ou diretorio atual."""
+    cleaned = unquote(src.strip())
+    if cleaned.startswith(("http://", "https://", "data:")):
+        return None
+    cand = Path(cleaned)
+    if cand.is_absolute():
+        return cand if cand.exists() and cand.is_file() else None
+    search_roots = []
+    if base_dir is not None:
+        search_roots.append(base_dir)
+    search_roots.append(Path.cwd())
+    for root in search_roots:
+        resolved = (root / cand).resolve()
+        if resolved.exists() and resolved.is_file():
+            return resolved
+    return None
+
+
 def export_markdown_to_docx(
     md_text: str,
     org: dict,
@@ -340,6 +388,7 @@ def export_markdown_to_docx(
     mode: str | None = None,
     page_map: dict[str, int] | None = None,
     uni_dir: Path | None = None,
+    base_dir: Path | None = None,
 ) -> None:
     from render import _clean_helper_notes, parse_frontmatter, split_top_h1_sections
 
@@ -381,6 +430,34 @@ def export_markdown_to_docx(
     _clear_header(sect0)
 
     has_capa = any(_strip_accents(t or "").upper().strip() == "CAPA" for t, _ in sections)
+
+    # Determina o numero de pagina real da 1a secao textual (ex.: 1 INTRODUCAO = 9)
+    textual_start_page: int | None = None
+    pretext_skip = {
+        "CAPA", "FOLHA DE ROSTO", "BANCA EXAMINADORA", "DEDICATORIA",
+        "RESUMO", "ABSTRACT", "SUMARIO", "REFERENCIAS",
+    }
+    if page_map:
+        for sec_t, _ in sections:
+            if sec_t is None:
+                continue
+            n_t = _strip_accents(sec_t).upper().strip()
+            if n_t in pretext_skip or n_t.startswith(("AGRADECIMENTO", "LISTA DE ", "APENDICE", "ANEXO")):
+                continue
+            nk = _norm_key(_strip_md(sec_t))
+            if nk in page_map:
+                textual_start_page = page_map[nk]
+                break
+    if textual_start_page is None:
+        pre_cnt = 0
+        for sec_t, _ in sections:
+            if sec_t is None:
+                continue
+            n_t = _strip_accents(sec_t).upper().strip()
+            if n_t == "FOLHA DE ROSTO" or n_t in {"BANCA EXAMINADORA", "DEDICATORIA", "RESUMO", "ABSTRACT", "SUMARIO"} or n_t.startswith(("AGRADECIMENTO", "LISTA DE ")):
+                pre_cnt += 1
+        textual_start_page = pre_cnt + 1 if pre_cnt > 0 else 1
+
     pretext_section_started = False
     textual_section_started = False
 
@@ -388,14 +465,16 @@ def export_markdown_to_docx(
         nonlocal pretext_section_started
         if not has_capa:
             if not pretext_section_started:
-                _set_section_pgnum_start(sect0, 1)
+                _set_section_pgnum_start(sect0, 0)
                 pretext_section_started = True
             return
         if not pretext_section_started:
             ns = doc.add_section(WD_SECTION.NEW_PAGE)
+            _ensure_section_next_page(ns)
             _configure_abnt_section(ns)
-            _clear_header(ns)
-            _set_section_pgnum_start(ns, 1)
+            ns.different_first_page_header_footer = False
+            ns.header.is_linked_to_previous = True
+            _set_section_pgnum_start(ns, 0)
             pretext_section_started = True
 
     def _ensure_textual_section():
@@ -403,12 +482,13 @@ def export_markdown_to_docx(
         if textual_section_started:
             return
         if not has_capa and not pretext_section_started:
-            _set_section_pgnum_start(sect0, 1)
+            _set_section_pgnum_start(sect0, textual_start_page)
             _add_page_number_header(sect0)
         else:
             ns = doc.add_section(WD_SECTION.NEW_PAGE)
+            _ensure_section_next_page(ns)
             _configure_abnt_section(ns)
-            _set_section_pgnum_start(ns, None)
+            _set_section_pgnum_start(ns, textual_start_page)
             _add_page_number_header(ns)
         textual_section_started = True
 
@@ -775,8 +855,32 @@ def export_markdown_to_docx(
                     idx += 1
                     continue
 
-                # Legenda Quadro/Tabela/Figura
-                if re.match(r"^(?:\*\*)?(Quadro|Tabela|Figura|Gráfico)\s+\d+", s):
+                # Imagem Markdown ![alt](caminho)
+                img_m = re.match(r"^!\[([^\]]*)\]\(([^)]+)\)$", s)
+                if img_m:
+                    raw_target = img_m.group(2).strip()
+                    src_match = re.match(r'^<?([^>"]+?)>?(?:\s+["\'].*["\'])?$', raw_target)
+                    raw_src = src_match.group(1) if src_match else raw_target
+                    img_path = _resolve_image_path(raw_src, base_dir=base_dir)
+                    if img_path is not None:
+                        pic_p = doc.add_paragraph()
+                        pic_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        pic_p.paragraph_format.first_line_indent = Cm(0)
+                        pic_p.paragraph_format.space_before = Pt(4)
+                        pic_p.paragraph_format.space_after = Pt(4)
+                        pic_p.paragraph_format.keep_with_next = True
+                        pic_p.add_run().add_picture(str(img_path), width=Cm(16.0))
+                    else:
+                        alt_txt = img_m.group(1).strip() or raw_src
+                        mp = doc.add_paragraph()
+                        mp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        mp.paragraph_format.first_line_indent = Cm(0)
+                        _set_run_font(mp.add_run(f"[Imagem: {alt_txt}]"), size_pt=10, italic=True)
+                    idx += 1
+                    continue
+
+                # Legenda Quadro/Tabela/Figura/Ilustracao
+                if re.match(r"^(?:\*\*)?(Quadro|Tabela|Figura|Gráfico|Ilustração)\s+\d+", s):
                     pending_quadro = "quadro" in s.lower()[:20]
                     cp = doc.add_paragraph()
                     cp.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -816,7 +920,7 @@ def export_markdown_to_docx(
                 idx += 1
                 while idx < len(lines):
                     nxt = lines[idx].strip()
-                    if not nxt or nxt.startswith(("#", "|", ">", "- ")) or re.match(r"^[a-z]\)\s+", nxt):
+                    if not nxt or nxt.startswith(("#", "|", ">", "- ", "![")) or re.match(r"^[a-z]\)\s+", nxt):
                         break
                     p_lines.append(nxt)
                     idx += 1

@@ -623,6 +623,12 @@ html, body {
 }
 
 /* === IMAGENS, CODIGO E MERMAID (PARA TRABALHOS DE COMPUTACAO) === */
+.unifil-textual p.unifil-figure-wrap {
+  text-indent: 0;
+  text-align: center;
+  margin: 6pt 0;
+}
+
 .unifil-textual img {
   max-width: 100%;
   height: auto;
