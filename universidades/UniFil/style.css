@@ -312,6 +312,11 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+.unifil-toc-link {
+  color: inherit;
+  text-decoration: none;
+}
+
 /* === DEDICATORIA, AGRADECIMENTOS, EPIGRAFE === */
 .unifil-dedicatoria {
   page: pretext;

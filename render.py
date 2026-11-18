@@ -756,6 +756,23 @@ def _render_siglas_html(title: str, body_md: str) -> str:
 """
 
 
+def _section_anchor_id(text: str) -> str:
+    """Gera ID HTML deterministico para secoes e subsecoes (#sec-...)."""
+    plain = re.sub(r"<[^>]+>", "", _strip_md_inline(text))
+    slug = re.sub(r"[^a-z0-9]+", "-", _strip_accents(plain).lower()).strip("-")
+    return f"sec-{slug}" if slug else "sec-item"
+
+
+def _caption_anchor_id(text: str) -> str | None:
+    """Gera ID HTML deterministico para legendas de Quadro, Tabela, Figura, Grafico e Ilustracao."""
+    plain = re.sub(r"<[^>]+>", "", _strip_md_inline(text))
+    norm = _strip_accents(plain).lower().strip()
+    m = re.match(r"^(quadro|tabela|figura|grafico|ilustracao)\s+(\d+)\b", norm)
+    if not m:
+        return None
+    return f"{m.group(1)}-{m.group(2)}"
+
+
 def _render_toc_or_list_html(title: str, body_md: str, page_map: dict[str, int] | None = None) -> str:
     rows = []
     for line in body_md.splitlines():
@@ -777,6 +794,9 @@ def _render_toc_or_list_html(title: str, body_md: str, page_map: dict[str, int] 
             if nk in page_map:
                 page_str = str(page_map[nk])
 
+        target_id = _caption_anchor_id(label) or _section_anchor_id(label)
+        href_attr = html_lib.escape(f"#{target_id}")
+
         # Nivel hierarquico para Sumario e separacao de indicativo numerico + titulo
         lvl = 1
         num_str = ""
@@ -790,22 +810,22 @@ def _render_toc_or_list_html(title: str, body_md: str, page_map: dict[str, int] 
         if num_str:
             rows.append(
                 f'<tr class="unifil-toc-row level-{lvl}">'
-                f'<td class="unifil-toc-num">{html_lib.escape(num_str)}</td>'
+                f'<td class="unifil-toc-num"><a href="{href_attr}" class="unifil-toc-link">{html_lib.escape(num_str)}</a></td>'
                 f'<td class="unifil-toc-title-cell"><div class="unifil-toc-line">'
-                f'<span class="unifil-toc-title">{html_lib.escape(title_text)}</span>'
+                f'<a href="{href_attr}" class="unifil-toc-link unifil-toc-title">{html_lib.escape(title_text)}</a>'
                 f'<span class="unifil-toc-dots"></span>'
                 f'</div></td>'
-                f'<td class="unifil-toc-page">{html_lib.escape(page_str)}</td>'
+                f'<td class="unifil-toc-page"><a href="{href_attr}" class="unifil-toc-link">{html_lib.escape(page_str)}</a></td>'
                 f'</tr>'
             )
         else:
             rows.append(
                 f'<tr class="unifil-toc-row level-{lvl}">'
                 f'<td class="unifil-toc-title-cell" colspan="2"><div class="unifil-toc-line">'
-                f'<span class="unifil-toc-title">{html_lib.escape(title_text)}</span>'
+                f'<a href="{href_attr}" class="unifil-toc-link unifil-toc-title">{html_lib.escape(title_text)}</a>'
                 f'<span class="unifil-toc-dots"></span>'
                 f'</div></td>'
-                f'<td class="unifil-toc-page">{html_lib.escape(page_str)}</td>'
+                f'<td class="unifil-toc-page"><a href="{href_attr}" class="unifil-toc-link">{html_lib.escape(page_str)}</a></td>'
                 f'</tr>'
             )
 
@@ -822,16 +842,32 @@ def _render_toc_or_list_html(title: str, body_md: str, page_map: dict[str, int] 
 
 
 def _postprocess_textual_html(html: str) -> str:
-    """Ajusta legendas de Quadro/Tabela/Figura, fontes, alineas, Quadros fechados e blocos coesos."""
+    """Ajusta legendas de Quadro/Tabela/Figura, fontes, alineas, Quadros fechados, IDs e blocos coesos."""
+    # Atribui id deterministico em headings (h1..h5) que ainda nao possuem id
+    def _add_heading_id(m: re.Match) -> str:
+        tag_lvl, attrs, inner = m.group(1), m.group(2), m.group(3)
+        if re.search(r'\bid\s*=', attrs, re.I):
+            return m.group(0)
+        hid = _section_anchor_id(inner)
+        return f'<h{tag_lvl}{attrs} id="{html_lib.escape(hid)}">{inner}</h{tag_lvl}>'
+
+    html = re.sub(r"<h([1-5])([^>]*)>(.*?)</h\1>", _add_heading_id, html, flags=re.S)
+
     # Legendas: paragrafos iniciados por Quadro N, Tabela N, Figura N, Grafico N, Ilustracao N
+    def _cap_tag(m: re.Match) -> str:
+        inner = m.group(1)
+        cid = _caption_anchor_id(inner)
+        id_attr = f' id="{html_lib.escape(cid)}"' if cid else ""
+        return f'<p{id_attr} class="unifil-caption">{inner}</p>'
+
     html = re.sub(
         r"<p>(<strong>(?:Quadro|Tabela|Figura|Gráfico|Ilustração)\s+\d+[^<]*</strong>[^<]*)</p>",
-        r'<p class="unifil-caption">\1</p>',
+        _cap_tag,
         html,
     )
     html = re.sub(
         r"<p>((?:Quadro|Tabela|Figura|Gráfico|Ilustração)\s+\d+\s*[-–:].*?)</p>",
-        r'<p class="unifil-caption">\1</p>',
+        _cap_tag,
         html,
     )
     # Fontes
@@ -960,17 +996,20 @@ def build_split_html(
         elif norm.startswith("LISTA DE ") or norm == "SUMARIO":
             pretext_fragments.append(_render_toc_or_list_html(sec_title, sec_body, page_map))
         elif norm == "REFERENCIAS":
+            ref_id = html_lib.escape(_section_anchor_id(sec_title))
             post_fragments.append(
-                f'<section class="unifil-referencias"><h2 class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{render_md_fragment(sec_body, base_dir=base_dir)}</section>'
+                f'<section class="unifil-referencias"><h2 id="{ref_id}" class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{render_md_fragment(sec_body, base_dir=base_dir)}</section>'
             )
         elif norm.startswith("APENDICE") or norm.startswith("ANEXO"):
+            post_id = html_lib.escape(_section_anchor_id(sec_title))
             post_fragments.append(
-                f'<section class="unifil-referencias"><h2 class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{_postprocess_textual_html(render_md_fragment(sec_body, base_dir=base_dir))}</section>'
+                f'<section class="unifil-referencias"><h2 id="{post_id}" class="unifil-section-center-title">{html_lib.escape(sec_title)}</h2>{_postprocess_textual_html(render_md_fragment(sec_body, base_dir=base_dir))}</section>'
             )
         else:
             textual_h1_count += 1
             cls = ' class="unifil-h1-break"' if textual_h1_count > 1 else ""
-            h1_html = f"<h1{cls}>{html_lib.escape(sec_title)}</h1>"
+            h1_id = html_lib.escape(_section_anchor_id(sec_title))
+            h1_html = f'<h1 id="{h1_id}"{cls}>{html_lib.escape(sec_title)}</h1>'
             body_html = _postprocess_textual_html(render_md_fragment(sec_body, base_dir=base_dir))
             textual_fragments.append(h1_html + "\n" + body_html)
 

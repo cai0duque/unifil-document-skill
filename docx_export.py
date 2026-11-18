@@ -13,6 +13,7 @@ from urllib.parse import unquote
 
 from docx import Document
 from docx.enum.section import WD_SECTION
+from docx.enum.style import WD_STYLE_TYPE
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT, WD_TAB_LEADER
 from docx.oxml import OxmlElement, parse_xml
@@ -48,19 +49,13 @@ def _set_run_font(run, name: str = "Arial", size_pt: float = 12, bold: bool = Fa
     rFonts.set(qn("w:eastAsia"), name)
 
 
-def _configure_heading_style(
-    doc: Document,
-    style_name: str,
-    *,
-    bold: bool = False,
-    italic: bool = False,
-    space_before_pt: float = 0,
-    space_after_pt: float = 18,
+def _apply_arial_style_rpr(
+    st, *, bold: bool = False, italic: bool = False, size_pt: float = 12
 ) -> None:
-    """Configura estilos embutidos Heading 1..5 conforme ABNT NBR 6024 e padrao UniFil."""
-    st = doc.styles[style_name]
+    """Aplica fonte Arial preta e propriedades de negrito/italico em um estilo de paragrafo."""
+    half_pts = str(int(size_pt * 2))
     st.font.name = "Arial"
-    st.font.size = Pt(12)
+    st.font.size = Pt(size_pt)
     st.font.bold = bold
     st.font.italic = italic
     st.font.color.rgb = RGBColor(0x00, 0x00, 0x00)
@@ -89,7 +84,7 @@ def _configure_heading_style(
     if sz_cs is None:
         sz_cs = OxmlElement("w:szCs")
         rPr.append(sz_cs)
-    sz_cs.set(qn("w:val"), "24")
+    sz_cs.set(qn("w:val"), half_pts)
 
     for tag, enabled in (("w:bCs", bold), ("w:iCs", italic)):
         el = rPr.find(qn(tag))
@@ -97,6 +92,20 @@ def _configure_heading_style(
             rPr.append(OxmlElement(tag))
         elif not enabled and el is not None:
             rPr.remove(el)
+
+
+def _configure_heading_style(
+    doc: Document,
+    style_name: str,
+    *,
+    bold: bool = False,
+    italic: bool = False,
+    space_before_pt: float = 0,
+    space_after_pt: float = 18,
+) -> None:
+    """Configura estilos embutidos Heading 1..5 conforme ABNT NBR 6024 e padrao UniFil."""
+    st = doc.styles[style_name]
+    _apply_arial_style_rpr(st, bold=bold, italic=italic, size_pt=12)
 
     pf = st.paragraph_format
     pf.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -107,6 +116,138 @@ def _configure_heading_style(
     pf.space_before = Pt(space_before_pt)
     pf.space_after = Pt(space_after_pt)
     pf.keep_with_next = True
+
+
+def _configure_toc_styles(doc: Document) -> None:
+    """Configura estilos nativos TOC 1..5 conforme ABNT NBR 6027:2012 e padrao UniFil."""
+    for lvl in range(1, 6):
+        style_name = f"TOC {lvl}"
+        st = (
+            doc.styles[style_name]
+            if style_name in doc.styles
+            else doc.styles.add_style(style_name, WD_STYLE_TYPE.PARAGRAPH)
+        )
+        st.base_style = doc.styles["Normal"]
+        st.quick_style = True
+        is_b = lvl in (1, 3)
+        is_i = lvl == 5
+        _apply_arial_style_rpr(st, bold=is_b, italic=is_i, size_pt=12)
+
+        pf = st.paragraph_format
+        pf.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        pf.first_line_indent = Cm(0)
+        pf.left_indent = Cm(0)
+        pf.right_indent = Cm(0)
+        pf.line_spacing = 1.35
+        pf.space_before = Pt(4 if lvl == 1 else 0)
+        pf.space_after = Pt(2)
+        pf.tab_stops.add_tab_stop(Cm(16.0), WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS)
+
+
+def _wrap_paragraph_with_bookmark(p, bk_id: int, bk_name: str) -> None:
+    """Envolve os runs de um paragrafo com bookmarkStart/bookmarkEnd OOXML."""
+    p_el = p._p
+    bk_start = OxmlElement("w:bookmarkStart")
+    bk_start.set(qn("w:id"), str(bk_id))
+    bk_start.set(qn("w:name"), bk_name)
+    pPr = p_el.find(qn("w:pPr"))
+    if pPr is not None:
+        p_el.insert(list(p_el).index(pPr) + 1, bk_start)
+    else:
+        p_el.insert(0, bk_start)
+    bk_end = OxmlElement("w:bookmarkEnd")
+    bk_end.set(qn("w:id"), str(bk_id))
+    p_el.append(bk_end)
+
+
+def _build_toc_rpr(*, size_pt: float = 12, bold: bool = False, italic: bool = False) -> OxmlElement:
+    """Constroi <w:rPr> em Arial preto sem sublinhado para itens de hiperlink do Sumario."""
+    half_pts = str(int(size_pt * 2))
+    rPr = OxmlElement("w:rPr")
+    rFonts = OxmlElement("w:rFonts")
+    for attr in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
+        rFonts.set(qn(attr), "Arial")
+    rPr.append(rFonts)
+    b_el = OxmlElement("w:b")
+    b_el.set(qn("w:val"), "1" if bold else "0")
+    rPr.append(b_el)
+    i_el = OxmlElement("w:i")
+    i_el.set(qn("w:val"), "1" if italic else "0")
+    rPr.append(i_el)
+    col = OxmlElement("w:color")
+    col.set(qn("w:val"), "000000")
+    rPr.append(col)
+    u_el = OxmlElement("w:u")
+    u_el.set(qn("w:val"), "none")
+    rPr.append(u_el)
+    sz = OxmlElement("w:sz")
+    sz.set(qn("w:val"), half_pts)
+    rPr.append(sz)
+    sz_cs = OxmlElement("w:szCs")
+    sz_cs.set(qn("w:val"), half_pts)
+    rPr.append(sz_cs)
+    return rPr
+
+
+def _make_fld_char(fld_type: str) -> OxmlElement:
+    r = OxmlElement("w:r")
+    fc = OxmlElement("w:fldChar")
+    fc.set(qn("w:fldCharType"), fld_type)
+    r.append(fc)
+    return r
+
+
+def _make_instr_run(instr_text: str) -> OxmlElement:
+    r = OxmlElement("w:r")
+    instr = OxmlElement("w:instrText")
+    instr.set(qn("xml:space"), "preserve")
+    instr.text = instr_text
+    r.append(instr)
+    return r
+
+
+def _append_hyperlink_pageref(
+    p, label: str, anchor: str, pg_str: str, *, bold: bool = False, italic: bool = False
+) -> None:
+    """Insere <w:hyperlink w:anchor='...'> com titulo, tabulacao pontilhada e campo PAGEREF."""
+    hl = OxmlElement("w:hyperlink")
+    hl.set(qn("w:anchor"), anchor)
+    hl.set(qn("w:history"), "1")
+
+    r_title = OxmlElement("w:r")
+    r_title.append(_build_toc_rpr(bold=bold, italic=italic))
+    t_title = OxmlElement("w:t")
+    t_title.set(qn("xml:space"), "preserve")
+    t_title.text = label
+    r_title.append(t_title)
+    hl.append(r_title)
+
+    r_tab = OxmlElement("w:r")
+    r_tab.append(_build_toc_rpr(bold=bold, italic=italic))
+    r_tab.append(OxmlElement("w:tab"))
+    hl.append(r_tab)
+
+    hl.append(_make_fld_char("begin"))
+    hl.append(_make_instr_run(f" PAGEREF {anchor} \\h "))
+    hl.append(_make_fld_char("separate"))
+
+    r_pg = OxmlElement("w:r")
+    r_pg.append(_build_toc_rpr(bold=bold, italic=italic))
+    t_pg = OxmlElement("w:t")
+    t_pg.text = pg_str
+    r_pg.append(t_pg)
+    hl.append(r_pg)
+
+    hl.append(_make_fld_char("end"))
+    p._p.append(hl)
+
+
+def _caption_anchor_key(text: str) -> str | None:
+    plain = _strip_accents(re.sub(r"<[^>]+>", "", text)).lower().strip()
+    m = re.match(r"^(quadro|tabela|figura|grafico|ilustracao)\s+(\d+)\b", plain)
+    if not m:
+        return None
+    return f"{m.group(1)}_{m.group(2)}"
 
 
 def _add_inline_runs(p, text: str, size_pt: float = 12, base_bold: bool = False, base_italic: bool = False) -> None:
@@ -417,6 +558,51 @@ def export_markdown_to_docx(
     _configure_heading_style(doc, "Heading 3", bold=True, italic=False, space_before_pt=18, space_after_pt=18)
     _configure_heading_style(doc, "Heading 4", bold=False, italic=False, space_before_pt=18, space_after_pt=18)
     _configure_heading_style(doc, "Heading 5", bold=False, italic=True, space_before_pt=18, space_after_pt=18)
+    _configure_toc_styles(doc)
+
+    # Pre-coleta titulos (Heading 1..5) e legendas para bookmarks e Sumario nativo OOXML
+    pretext_only = {
+        "CAPA", "FOLHA DE ROSTO", "BANCA EXAMINADORA", "DEDICATORIA",
+        "RESUMO", "ABSTRACT", "SUMARIO",
+    }
+    toc_entries: list[tuple[int, str, int, str, str]] = []
+    caption_bookmarks: dict[str, tuple[int, str]] = {}
+    bk_counter = 1
+
+    for sec_t, sec_b in sections:
+        if sec_t is None:
+            continue
+        n_t = _strip_accents(sec_t).upper().strip()
+        if n_t in pretext_only or n_t.startswith(("AGRADECIMENTO", "LISTA DE ")):
+            continue
+        disp_h1 = _strip_md(sec_t).upper()
+        toc_entries.append((1, disp_h1, bk_counter, f"_Toc{bk_counter:08d}", _norm_key(_strip_md(sec_t))))
+        bk_counter += 1
+        if n_t == "REFERENCIAS":
+            continue
+        in_fence = False
+        for ln in sec_b.splitlines():
+            st_ln = ln.strip()
+            if st_ln.startswith("```") or st_ln.startswith("~~~"):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue
+            hm = re.match(r"^(#{2,5})\s+(.+)$", st_ln)
+            if hm:
+                lvl = len(hm.group(1))
+                raw_h = _strip_md(hm.group(2))
+                disp_h = raw_h.upper() if lvl == 2 else raw_h
+                toc_entries.append((lvl, disp_h, bk_counter, f"_Toc{bk_counter:08d}", _norm_key(raw_h)))
+                bk_counter += 1
+                continue
+            if re.match(r"^(?:\*\*)?(Quadro|Tabela|Figura|Gráfico|Ilustração)\s+\d+", st_ln):
+                ck = _caption_anchor_key(_strip_md(st_ln))
+                if ck and ck not in caption_bookmarks:
+                    caption_bookmarks[ck] = (bk_counter, ck)
+                    bk_counter += 1
+
+    heading_bm_iter = iter(toc_entries)
 
     # Logo oficial UniFil
     logo_path: Path | None = None
@@ -710,7 +896,88 @@ def export_markdown_to_docx(
                     _set_run_font(p0.add_run(k), size_pt=12, bold=True)
                     _set_run_font(p1.add_run(v), size_pt=12)
 
-        elif norm.startswith("LISTA DE ") or norm == "SUMARIO":
+        elif norm == "SUMARIO":
+            _ensure_pretext_section()
+            doc.add_page_break()
+            hp = doc.add_paragraph()
+            hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            hp.paragraph_format.space_after = Pt(14)
+            _set_run_font(hp.add_run(sec_title.upper()), size_pt=12, bold=True)
+
+            # Gera Sumario nativo OOXML (SDT + campo TOC \o "1-5" \h \z \u + hyperlinks + PAGEREF)
+            entries_for_toc = toc_entries
+            if not entries_for_toc:
+                # Fallback caso nao existam secoes numeradas no Markdown
+                entries_for_toc = []
+                for ln in sec_body.splitlines():
+                    s = re.sub(r"^-\s+", "", ln.strip()).rstrip("\\ ")
+                    if not s:
+                        continue
+                    m = re.match(r"^(.*?)\s*(?:\.{2,}\s*)?(?:p\.\s*[Xx0-9]+|\b00\b)$", s)
+                    lbl = _strip_md(m.group(1).strip() if m else s)
+                    lvl = 1
+                    num_m = re.match(r"^(\d+(?:\.\d+)*)\s+(.+)$", lbl)
+                    if num_m:
+                        lvl = min(len(num_m.group(1).split(".")), 5)
+                    disp = lbl.upper() if lvl in (1, 2) else lbl
+                    entries_for_toc.append((lvl, disp, 0, "", _norm_key(lbl)))
+
+            if entries_for_toc and entries_for_toc[0][3]:
+                sdt = OxmlElement("w:sdt")
+                sdt_pr = OxmlElement("w:sdtPr")
+                sdt_rpr = _build_toc_rpr(bold=False, italic=False)
+                sdt_pr.append(sdt_rpr)
+                doc_part_obj = OxmlElement("w:docPartObj")
+                gallery = OxmlElement("w:docPartGallery")
+                gallery.set(qn("w:val"), "Table of Contents")
+                doc_part_obj.append(gallery)
+                doc_part_obj.append(OxmlElement("w:docPartUnique"))
+                sdt_pr.append(doc_part_obj)
+                sdt.append(sdt_pr)
+                sdt_content = OxmlElement("w:sdtContent")
+                sdt.append(sdt_content)
+
+                for e_idx, (lvl, disp_txt, _, bk_name, nk) in enumerate(entries_for_toc):
+                    pg_str = str(page_map[nk]) if (page_map and nk in page_map) else "X"
+                    tp = doc.add_paragraph(style=f"TOC {lvl}")
+                    tp.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    tp.paragraph_format.first_line_indent = Cm(0)
+                    tp.paragraph_format.line_spacing = 1.35
+                    tp.paragraph_format.space_before = Pt(4 if lvl == 1 else 0)
+                    tp.paragraph_format.space_after = Pt(2)
+                    tp.paragraph_format.tab_stops.add_tab_stop(
+                        Cm(16.0), WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS
+                    )
+                    if e_idx == 0:
+                        tp._p.append(_make_fld_char("begin"))
+                        tp._p.append(_make_instr_run(' TOC \\o "1-5" \\h \\z \\u '))
+                        tp._p.append(_make_fld_char("separate"))
+                    _append_hyperlink_pageref(
+                        tp,
+                        disp_txt,
+                        bk_name,
+                        pg_str,
+                        bold=(lvl in (1, 3)),
+                        italic=(lvl == 5),
+                    )
+                    if e_idx == len(entries_for_toc) - 1:
+                        tp._p.append(_make_fld_char("end"))
+                    sdt_content.append(tp._p)
+
+                hp._p.addnext(sdt)
+            else:
+                for lvl, disp_txt, _, _, nk in entries_for_toc:
+                    pg_str = str(page_map[nk]) if (page_map and nk in page_map) else "X"
+                    tp = doc.add_paragraph(style=f"TOC {lvl}")
+                    tp.paragraph_format.line_spacing = 1.35
+                    tp.paragraph_format.space_before = Pt(4 if lvl == 1 else 0)
+                    tp.paragraph_format.space_after = Pt(2)
+                    tp.paragraph_format.tab_stops.add_tab_stop(
+                        Cm(16.0), WD_TAB_ALIGNMENT.RIGHT, WD_TAB_LEADER.DOTS
+                    )
+                    _set_run_font(tp.add_run(f"{disp_txt}\t{pg_str}"), size_pt=12, bold=(lvl in (1, 3)), italic=(lvl == 5))
+
+        elif norm.startswith("LISTA DE "):
             _ensure_pretext_section()
             doc.add_page_break()
             hp = doc.add_paragraph()
@@ -747,7 +1014,13 @@ def export_markdown_to_docx(
                 is_b = lvl in (1, 3)
                 is_i = lvl == 5
                 txt_disp = _strip_md(lbl).upper() if lvl in (1, 2) else _strip_md(lbl)
-                _set_run_font(tp.add_run(f"{txt_disp}\t{pg_str}"), size_pt=12, bold=is_b, italic=is_i)
+                ck = _caption_anchor_key(txt_disp)
+                if ck and ck in caption_bookmarks:
+                    _append_hyperlink_pageref(
+                        tp, txt_disp, caption_bookmarks[ck][1], pg_str, bold=is_b, italic=is_i
+                    )
+                else:
+                    _set_run_font(tp.add_run(f"{txt_disp}\t{pg_str}"), size_pt=12, bold=is_b, italic=is_i)
 
         elif norm == "REFERENCIAS":
             _ensure_textual_section()
@@ -759,6 +1032,8 @@ def export_markdown_to_docx(
             hp.paragraph_format.space_after = Pt(18)
             hp.paragraph_format.keep_with_next = True
             _set_run_font(hp.add_run(sec_title.upper()), size_pt=12, bold=True)
+            _, _, bk_id, bk_name, _ = next(heading_bm_iter)
+            _wrap_paragraph_with_bookmark(hp, bk_id, bk_name)
 
             for para in re.split(r"\n\s*\n", sec_body.strip()):
                 p_txt = para.strip()
@@ -784,14 +1059,21 @@ def export_markdown_to_docx(
             hp.paragraph_format.space_after = Pt(18)
             hp.paragraph_format.keep_with_next = True
             _set_run_font(hp.add_run(sec_title.upper()), size_pt=12, bold=True)
+            _, _, bk_id, bk_name, _ = next(heading_bm_iter)
+            _wrap_paragraph_with_bookmark(hp, bk_id, bk_name)
 
             lines = sec_body.splitlines()
             idx = 0
             pending_quadro = False
+            in_fence = False
             while idx < len(lines):
                 ln = lines[idx]
                 s = ln.strip()
-                if not s:
+                if s.startswith("```") or s.startswith("~~~"):
+                    in_fence = not in_fence
+                    idx += 1
+                    continue
+                if in_fence or not s:
                     idx += 1
                     continue
 
@@ -814,6 +1096,8 @@ def export_markdown_to_docx(
                         _set_run_font(sh.add_run(htext), size_pt=12, bold=False)
                     else:
                         _set_run_font(sh.add_run(htext), size_pt=12, italic=True)
+                    _, _, sbk_id, sbk_name, _ = next(heading_bm_iter)
+                    _wrap_paragraph_with_bookmark(sh, sbk_id, sbk_name)
                     idx += 1
                     continue
 
@@ -889,6 +1173,9 @@ def export_markdown_to_docx(
                     cp.paragraph_format.space_after = Pt(4)
                     cp.paragraph_format.keep_with_next = True
                     _add_inline_runs(cp, s, size_pt=12)
+                    ck = _caption_anchor_key(_strip_md(s))
+                    if ck and ck in caption_bookmarks:
+                        _wrap_paragraph_with_bookmark(cp, caption_bookmarks[ck][0], caption_bookmarks[ck][1])
                     idx += 1
                     continue
 
